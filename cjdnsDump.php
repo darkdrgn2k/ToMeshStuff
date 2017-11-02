@@ -1,8 +1,15 @@
 <?php
 $depth=0;
+function logs($l,$depth) {
+        for ($i=0; $i<$depth; $i++) echo " ";
+        echo $l;
+        echo "\n";
+}
+
 function toIP($pub) {
         return trim(shell_exec("/opt/cjdns/publictoip6 " . $pub));
 }
+$checkedNode[]=0;
 
 /*$bl['ksdkzmw2uryvkfg187kxmkdup8k78urqzpn29zh1nxvl6wfdbjk0.k']=
 $bl['3wc3p4dsx6t2ykvp6xwsrqghxpd1sk925llvkvhtvnljdpd6zw30.k']=
@@ -18,26 +25,26 @@ $bl[]=0;
 
 $res= file_get_contents('https://raw.githubusercontent.com/tomeshnet/node-list/master/nodeList.json');
 $nodes=json_decode($res);
-
 foreach ($nodes as $node) {
 
-	if (isset($node->IPV6Address)) {
-		$wl[$node->IPV6Address]=1;
-	}
+        if (isset($node->IPV6Address)) {
+                $wl[$node->IPV6Address]=1;
+        }
 }
 
 function isLink ($p1,$p2) {
-		global $links;
-		if ($p1==$p2) return 1; //is Self
-		if (isset($bl[$p1])) return 1; //is From Blacklist
-		if (isset($bl[$p2])) return 1; //is To Blacklis t
-		if (isset($links[$p1][$p2]))  return 1; //is From To list
-		if (isset($links[$p2][$p1]))  return 1; //is To From list
-		return 0;
+        global $links;
+        if ($p1==$p2) return 1; //is Self
+        if (isset($bl[$p1])) return 1; //is From Blacklist
+        if (isset($bl[$p2])) return 1; //is To Blacklis t
+        if (isset($links[$p1][$p2]))  return 1; //is From To list
+        if (isset($links[$p2][$p1]))  return 1; //is To From list
+        return 0;
+
 }
 
 function AddLink($p1,$p2) {
-global $links;
+        global $links;
 
         if (!isLink($p1,$p2)) {
                 $links[$p1][$p2]=1;
@@ -45,50 +52,44 @@ global $links;
 }
 
 function ProcessManual($path,$pubKey) {
-        global $Links,$depth;
-        if (isset($bl[$pubKey])) return;
+        global $Links,$depth,$checkedNode,$wl;
 
+        logs("+++ScanOf " . $pubKey . "+++" , $depth);
         $res=shell_exec("./cexec \"RouterModule_getPeers('" . $path  . "')\"");
 
         $res=json_decode($res);
+        //First add links
         if (isset($res->peers))  {
                 $p=$res->peers;
                 foreach ($p as $pr) {
-
-
                         $pr2=explode(".",$pr);
                         $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
-
-                        $ip=$pr2[5] . ".k"; //Make NEW Pub Key
-                        if (!isset($bl[$ip])) {
-
-                                if ($NewPath!="0000.0000.0000.0001") { //dont process if im processing myself
-
-
-                                        if (!isLink($pubKey,$ip)) { //If not linked already
-                                                AddLink($pubKey,$ip); //Add Link
-                                                for ($i=0; $i<$depth; $i++) echo " ";
-                                                echo $NewPath . "--" . $pubKey .  " -> " . $ip . "\n";
-
-
-                                                $depth++;
-                                                $res2=shell_exec("./cexec \"NodeStore_getRouteLabel('". $path. "','" . $NewPath  . "')\"");
-                                                echo "./cexec \"NodeStore_getRouteLabel('". $path. "','" . $NewPath  . "')\"\n";
-                                                $res2=json_decode($res2);
+                        $newPubKey=$pr2[5] . ".k"; //Make NEW Pub Key
+                        addLink($pubKey,$newPubKey);
+                }
+                //Next Rerusrse
+                $p=$res->peers;
+                foreach ($p as $pr) {
+                        $pr2=explode(".",$pr);
+                        $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
+                        $newPubKey=$pr2[5] . ".k"; //Make NEW Pub Key
+                        if ($NewPath!="0000.0000.0000.0001") { //dont process if im processing myself
+                            if (!isset($checkedNode[$newPubKey]) && isset($wl[toIP($newPubKey)]) ) { //If i have not been to this node before
+                                $checkedNode[$newPubKey]=1;
+                                //logs ($NewPath . "--" . $pubKey .  " -> " . $ip ,$depth);
+                                $depth++;
+                                $res2=shell_exec("./cexec \"NodeStore_getRouteLabel('". $path. "','" . $NewPath  . "')\"");
+//                               echo "./cexec \"NodeStore_getRouteLabel('". $path. "','" . $NewPath  . "')\"\n";
+                                 $res2=json_decode($res2);
                                                 //print_r($res2);
-                                                if ($res2->error=="none") {
-                                                        $NewPath=$res2->result;
-                                                        ProcessManual($NewPath,$ip); //Starting Point
-                                                }
-                                                $depth--;
-
-                                        }
-                                } else {
-                //                      echo $NewPath . "--" . $pubKey .  " -> " . $ip . "\n";
-                                }
+                                 if ($res2->error=="none") {
+                                     $NewPath=$res2->result;
+                                      ProcessManual($NewPath,$newPubKey); //Starting Point
+                                 }
+                                 $depth--;
+                            }
                         }
                 }
-
         }
 }
 
@@ -100,7 +101,6 @@ function ProcessSNode() {
         foreach ($resLines as $line) {
                 $node=json_decode($line);
                 if ($node[0]=='link') AddLink($node[3] , $node[4]);
-                //if ($node[0]=='oldlink') AddLinkIP(toIP($node[3] , $node[4]);
         }
 }
 ProcessManual ('0000.0000.0000.0001',"ksdkzmw2uryvkfg187kxmkdup8k78urqzpn29zh1nxvl6wfdbjk0.k"); //Starting Point
@@ -116,14 +116,14 @@ echo $from . "=" . $to . "\n";
         $to=trim(shell_exec("/opt/cjdns/publictoip6 " . $k2));
 //$to=$k2;
 //echo $wl[$from] . " " . $wl[$to];
-if (isset($wl[$from]) || isset($wl[$to])) {
+//if (isset($wl[$from]) || isset($wl[$to])) {
             $r['from']=$from;
             $r['to']=$to;
 //            $r['pfrom']=$k;
  //           $r['pto']=$k2;
             $n[]=$r;
             unset($r);
-}
+//}
 
                 }
 }
