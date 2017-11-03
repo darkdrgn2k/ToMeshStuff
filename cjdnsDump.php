@@ -14,16 +14,6 @@ function toIP($pub) {
 }
 $checkedNode[]=0;
 
-/*$bl['ksdkzmw2uryvkfg187kxmkdup8k78urqzpn29zh1nxvl6wfdbjk0.k']=
-$bl['3wc3p4dsx6t2ykvp6xwsrqghxpd1sk925llvkvhtvnljdpd6zw30.k']=
-$bl['s51m64dvhm38jlsc5vsjy9r3nry8qzcgpt5t10fxkq32fmnycyp0.k']=
-$bl['jg035j9hup776kwz1k4n0bwpggxp1qmts6t715x53g8vutxktzz0.k']=
-$bl['1941p5k8qqvj17vjrkb9z97wscvtgc1vp8pv1huk5120cu42ytt0.k']=
-$bl['2scyvybg4qqms1c5c9nyt50b1cdscxnr6ycpwsxf6pccbmwuynk0.k']=
-$bl['gx73lzns92j88p1umq2rsqn3ccll28cxuy2z0vjxxmxuplf8yxc0.k']=1;
-//$bl['fgz855zyt2h7wfmf5nj5lf9j2fuh0jbrxrxk2yyqlzj1l9my3jz0.k']=1;
-*/
-$bl[]=0;
 
 
 $res= file_get_contents('https://raw.githubusercontent.com/tomeshnet/node-list/master/nodeList.json');
@@ -39,8 +29,6 @@ $wl['fc44:b25f:9533:dede:9242:e5b4:3df6:a99c']=1;
 function isLink ($p1,$p2) {
         global $links,$depth;
         if ($p1==$p2) return 1; //is Self
-        if (isset($bl[$p1])) return 1; //is From Blacklist
-        if (isset($bl[$p2])) return 1; //is To Blacklis t
         if (isset($links[$p1][$p2]))  return 1; //is From To list
         if (isset($links[$p2][$p1]))  return 1; //is To From list
         logs("Adding " . $p1 . " to " . $p2,$depth);
