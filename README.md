@@ -18,3 +18,7 @@ Us the following instead of static_configs: - targets:
             - "/etc/prometheus.json"
 ```
 
+
+vis
+
+Dynamically generated js map for cjdnsDump.php
