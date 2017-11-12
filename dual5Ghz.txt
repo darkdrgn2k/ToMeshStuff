@@ -1,3 +1,19 @@
+
+##ONE TIME##
+cat "dhcp-range=10.1.0.2,10.1.0.127,255.255.255.0,12h" >> /etc/dnsmasq.conf
+
+cat "allow-hotplug wlan2" >> /etc/network/interfaces
+cat "iface wlan2 inet static" >> /etc/network/interfaces
+cat "    address 10.1.0.1" >> /etc/network/interfaces
+cat "    netmask 255.255.255.0" >> /etc/network/interfaces
+cat "    network 10.1.0.0" >> /etc/network/interfaces
+cat "    broadcast 10.1.0.255" >> /etc/network/interfaces
+cat "iface wlan2 inet6 static" >> /etc/network/interfaces
+cat "    address fdfc::2" >> /etc/network/interfaces
+cat "    netmask 64" >> /etc/network/interfaces
+
+
+##EVERY TIME###
 echo interface=wlan2 > /etc/hostapd/hostapd-5g.conf
 echo hw_mode=a >> /etc/hostapd/hostapd-5g.conf
 echo channel=36 >> /etc/hostapd/hostapd-5g.conf
