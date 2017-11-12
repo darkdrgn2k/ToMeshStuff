@@ -1,0 +1,6 @@
+echo interface=wlan2 > /etc/hostapd/hostapd-5g.conf
+echo hw_mode=a >> /etc/hostapd/hostapd-5g.conf
+echo channel=36 >> /etc/hostapd/hostapd-5g.conf
+echo ssid=TOMesh.net >> /etc/hostapd/hostapd-5g.conf
+/usr/sbin/hostapd -B /etc/hostapd/hostapd-5g.conf -P /var/run/hostapd-5g.pid
+

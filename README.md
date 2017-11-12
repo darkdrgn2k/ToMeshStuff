@@ -22,3 +22,20 @@ Us the following instead of static_configs: - targets:
 vis
 
 Dynamically generated js map for cjdnsDump.php
+
+
+dual5Ghz.txt
+
+Configuration of second 5ghz card for WIFI
+
+iptunnel_client.sh
+
+
+Bash script to request ip tunnel information
+
+iptunnel_server.php
+
+php script to use client script with
+
+
+
