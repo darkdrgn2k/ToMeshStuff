@@ -1,0 +1,53 @@
+#!/bin/sh
+
+##issue - missing files still like node_modules, not sure where to put them
+
+TAG_CJDNS=186169f9a8631633795e4e9d70c501519a7800f4
+CJDNS_BUILD_CMD="sudo Seccomp_NO=1 CFLAGS=\"-s -static -Wall -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -fomit-frame-pointer -marm\" ./do"
+
+mkdir cjdns
+cd cjdns
+
+git clone https://github.com/cjdelisle/cjdns.git cjdns-src
+cd cjdns-src
+git checkout $TAG_CJDNS 
+eval $CJDNS_BUILD_CMD
+
+mkdir -p ../usr/bin
+cp cjdroute ../usr/bin
+
+mkdir -p ../usr/share/cjdns
+cp -R tools/* ../usr/share/cjdns
+cp privatetopublic  ../usr/share/cjdns
+cp publictoip6  ../usr/share/cjdns
+
+mkdir -p ../lib/systemd/system
+cp contrib/systemd/cjdns.service              ../lib/systemd/system/cjdns.service
+cp contrib/systemd/cjdns-resume.service ../lib/systemd/system/cjdns-resume.service
+sudo chmod 644 ../lib/systemd/system/cjdns-resume.service
+sudo chmod 644 ../lib/systemd/system/cjdns.service
+
+cd ..
+
+
+mkdir DEBIAN
+cat << EOF  > DEBIAN/control
+Package: CJDNS-opi-zero
+Version: $TAG_CJDNS 
+Maintainer: darkdrgn2k 
+Architecture: armhf
+Description: CJDNS Compiled for Orange Pi Zero 
+EOF
+cat << EOF  > DEBIAN/postinst
+#!/bin/bash
+if ! [ -f "/etc/cjdroute.conf" ]; then
+    sudo /usr/bin/cjdroute --genconf | sudo tee --append /etc/cjdroute.conf > /dev/null
+fi
+systemctl daemon-reload
+systemctl enable cjdns.service
+EOF
+
+chmod a+x DEBIAN/postinst
+rm -rf cjdns-src
+cd ..
+dpkg-deb --build cjdns
