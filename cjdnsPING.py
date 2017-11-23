@@ -7,7 +7,7 @@ result = {}
 for value in data:
 	if "IPV6Address" in value:
 		node = {}
-		command_line = "ping6 -c 1 " + value["IPV6Address"]
+		command_line = "ping6 -c 5 " + value["IPV6Address"]
 		args = shlex.split(command_line)
 		ping = subprocess.Popen(args,stdout=subprocess.PIPE)
 		ping.wait()
