@@ -26,4 +26,4 @@ for value in data:
 				node.update({'pingMax' : pingData[2]})
 				node.update({'status' : "ok" })
 		result.update({value["IPV6Address"] : node})
-print result
+print json.dumps(result)
