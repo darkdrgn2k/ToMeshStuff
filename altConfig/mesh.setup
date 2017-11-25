@@ -8,6 +8,7 @@ type="$(confget -f /etc/mesh.conf -s $mac type)"
 
 if [ "$type" == "mesh" ]; then
 
+   protocol="$(confget -f /etc/mesh.conf -s $mac protocol)"
 
    # Set wireless regulatory domain
     sudo iw reg set CA
@@ -16,7 +17,18 @@ if [ "$type" == "mesh" ]; then
     # Shut down the mesh_dev interface
     sudo ifconfig $int down
 
-    if [ "$(confget -f /etc/mesh.conf -s $mac protocol)" == "80211s" ]; then 
+    if [ "$protocol" == "adhoc" ]; then 
+
+        ssid="$(confget -f /etc/mesh.conf -s $mac ssid)"
+        freq="$(confget -f /etc/mesh.conf -s $mac freq)"
+
+        sudo iw $int set type ibss
+        sudo ifconfig $int up
+
+        sudo iw dev $int ibss join $ssid $freq HT40+
+
+    fi
+    if [ "$protocol" == "80211s" ]; then 
 
         ssid="$(confget -f /etc/mesh.conf -s $mac ssid)"
         freq="$(confget -f /etc/mesh.conf -s $mac freq)"
