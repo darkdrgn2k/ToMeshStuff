@@ -46,3 +46,13 @@ CJDNS in DEB pkg and build scripts
 # CJDNS-BIN
 
 CJDNS Bin files incluiding NSA_APPROVED for debugging
+
+# hyperborea-router.sh
+
+Turns your To Mesh Node into a Hyperbrea Router. You can now plug in a commercialy available router into the node. 
+
+Script achives this by
+* Disable HostAPD wireless 
+* Turning on Dhcp and Radvd  on the ethernet port to provice Addressing for connected router
+* Replace eth0 dhcp client with a static ip address and ipv6 address
+* Update firewall rules and trigger them on boot
