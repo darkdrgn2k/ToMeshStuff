@@ -88,7 +88,9 @@ function GetFrequency() {
 
         list=""
         while read -r line
-        do      clean=$(echo $line | tr -d '.')
+        do
+                clean=$(echo $line | awk '{print $4}')
+                clean=$(echo $clean | tr -d '.')
                 list="$list $clean '$line Ghz'"
                 if [[ "$intFreq" == "$clean" ]]; then
                 list="$list on"
@@ -97,7 +99,7 @@ function GetFrequency() {
                 list="$list off"
 
                 fi
-        done < <(iwlist $intSelected frequency | grep Channel | awk '{print $4'})
+        done < <(iwlist $intSelected frequency | grep Channel | awk '{print "Channel "$2" Freq "$4'})
 
         eval "dialog --radiolist 'Frequency' 20 51 10 $list "  2>/tmp/res
         intFreq=$(cat /tmp/res)
