@@ -32,4 +32,4 @@ sudo killall cjdroute
 EOF
 
 chmod +x /usr/bin/mesh
- sed -i 's/type mesh point/type IBSS/' /usr/local/bin/status  >status2
+sed -i 's/type mesh point/type IBSS/' /usr/local/bin/status
