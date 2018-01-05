@@ -1,11 +1,16 @@
 apt-get update
 apt-get upgrade
 apt-get install linux-headers-next-sunxi
+or
+apt-get install linux-headers-next-sunxi64
+
 git clone https://github.com/ulli-kroll/mt7610u.git
 
-line 2072 of chips/mt76x0.c
-udelay(2200);  to  udelay(2000);
-find ./ -type f -exec sed -i -e 's/udelay(2200/udelay(2000/g' {} \;
+#line 2072 of chips/mt76x0.c
+#udelay(2200);  to  udelay(2000);
+#find ./ -type f -exec sed -i -e 's/udelay(2200/udelay(2000/g' {} \;
 
 
 make ARCH=arm
+or
+make ARCH=arm64
