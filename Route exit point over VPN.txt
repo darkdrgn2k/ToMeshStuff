@@ -1,0 +1,6 @@
+iptables -t mangle -A PREROUTING -i tun0 -j MARK --set-mark 1 # mark ipv4 traffic comming out of tun0 (iptunnel)
+ip route add default via $(ifconfig  tun1 | grep addr | grep inet | awk '{print $2}' | awk -F ':' '{print $2}') dev tun1 table 2 # Create rout
+ip rule add fwmark 1 table 2 #push tagged from route
+iptables -t nat -A POSTROUTING -o tun1 -j MASQUERADE # Masquarade
+ifconfig tun0 192.168.1.1
+route add -net 192.168.1.0/24 tun0
