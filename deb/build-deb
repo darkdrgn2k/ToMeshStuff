@@ -22,7 +22,7 @@ cp privatetopublic  ../usr/share/cjdns
 cp publictoip6  ../usr/share/cjdns
 
 mkdir -p ../lib/systemd/system
-cp contrib/systemd/cjdns.service              ../lib/systemd/system/cjdns.service
+cp contrib/systemd/cjdns.service ../lib/systemd/system/cjdns.service
 cp contrib/systemd/cjdns-resume.service ../lib/systemd/system/cjdns-resume.service
 sudo chmod 644 ../lib/systemd/system/cjdns-resume.service
 sudo chmod 644 ../lib/systemd/system/cjdns.service
@@ -32,11 +32,11 @@ cd ..
 
 mkdir DEBIAN
 cat << EOF  > DEBIAN/control
-Package: CJDNS-opi-zero
+Package: CJDNS-neon
 Version: $TAG_CJDNS 
 Maintainer: darkdrgn2k 
 Architecture: armhf
-Description: CJDNS Compiled for Orange Pi Zero 
+Description: CJDNS with Neon accel
 EOF
 cat << EOF  > DEBIAN/postinst
 #!/bin/bash
@@ -51,3 +51,4 @@ chmod a+x DEBIAN/postinst
 rm -rf cjdns-src
 cd ..
 dpkg-deb --build cjdns
+mv cjdns.deb cjdns-neon.deb
