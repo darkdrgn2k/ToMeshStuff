@@ -1,9 +1,10 @@
 #!/bin/sh
 
 ##issue - missing files still like node_modules, not sure where to put them
+apt-get install gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
 
 TAG_CJDNS=186169f9a8631633795e4e9d70c501519a7800f4
-CJDNS_BUILD_CMD="sudo Seccomp_NO=1 CFLAGS=\"-s -static -Wall -mfpu=neon-vfpv4\" ./do"
+CJDNS_BUILD_CMD="sudo Seccomp_NO=1 CFLAGS=\"-s -static -Wall -mfpu=neon-vfpv4\" CROSS_COMPILE=arm-linux-gnueabihf- ./cross-do"
 
 mkdir cjdns
 cd cjdns
