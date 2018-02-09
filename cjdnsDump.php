@@ -3,7 +3,7 @@ $stack[]="";
 chdir("/opt/cjdns/tools");
 $depth=0;
 function expand($ip){
-    $hex = unpack("H*hex", inet_pton($ip));         
+    $hex = unpack("H*hex", inet_pton($ip));
     $ip = substr(preg_replace("/([A-f0-9]{4})/", "$1:", $hex['hex']), 0, -1);
 
     return $ip;
@@ -16,9 +16,42 @@ function logs($l,$depth) {
         echo "\n";
 }
 
+$ipCache;
 function toIP($pub) {
-        return expand(trim(shell_exec("/opt/cjdns/publictoip6 " . $pub)));
+        global $ipCache;
+        if (!isset($ipCache[$pub])) {
+                $ipCache[$pub] =  expand(trim(shell_exec("/opt/cjdns/publictoip6 " . $pub)));
+        }
+        return $ipCache[$pub];
 }
+
+
+function getPeers($path,$pubKey,$startpath="") {
+        $startpath="0000.0000.0000.0001";
+        $counter=8;
+        $round=0;
+        $lastpeer="";
+        $all[]="";
+        while ($counter==8) {
+                $cmd="./cexec \"RouterModule_getPeers('v19." . $path  . "." . $pubKey . "',30000,'" . $startpath . "')\"";
+                $res=shell_exec($cmd);
+                $res=json_decode($res);
+
+                $peers=$res->peers;
+                $all = array_merge($all,$peers);
+                $counter=count($peers);
+
+                if ($counter == 8) {
+                        $tmp=explode(".",$peers[7]);
+                        $startpath=$tmp[1] . "." . $tmp[2] . "." . $tmp[3] . "." . $tmp[4];
+                }
+
+        }
+
+        array_shift($all);
+        return ($all);
+}
+
 
 $checkedNode[]=0;
 $currentPath="0000.0000.0000.0000";
@@ -30,45 +63,51 @@ foreach ($nodes as $node) {
                 $wl[expand($node->IPV6Address)]=1;
         }
 }
-$wl['fc44:b25f:9533:dede:9242:e5b4:3df6:a99c']=1;
+//$wl['ipv6addy']=1;
 
 
 function isLink ($p1,$p2) {
         global $links,$depth,$currentPath;
         if ($p1==$p2) return 1; //Self link skip
         if (isset($links[$p1][$p2])) return 1; //is From To list
-        if (isset($links[$p2][$p1])) return 1; //is To From list       
+        if (isset($links[$p2][$p1])) return 1; //is To From list
         return 0;
 }
 
-function AddLink($p1,$p2) {
-        global $links,$currentPath,$depth;
+
+function AddLink($p1,$p2,$addNewNodes=false) {
+        global $links,$currentPath,$depth,$oknodes;
         if (!isLink($p1,$p2)) {
-                logs("Adding " . $p1 . " to " . $p2 . " Over " . $currentPath,$depth);
+                logs("Adding ($addNewNodes)" . $p1 . " to " . $p2 . " Over " . $currentPath,$depth);
                 $links[$p1][$p2]=$currentPath;
+                if ($addNewNodes) {
+                        $oknodes[$p1]=$addNewNodes;
+                        $oknodes[$p2]=$addNewNodes;
+                }
         } else {
                 logs("Got it already .. Skipping...",$depth);
         }
 }
 
-function ProcessManual($path,$pubKey) {
-        global $Links,$depth,$checkedNode,$checkNodeLinks,$wl,$stack,$currentPath;
+
+function ProcessManual($path,$pubKey,$notOnlyLink=true) {
+        global $Links,$depth,$checkedNode,$checkNodeLinks,$wl,$stack,$currentPath,$oknodes;
+        if (!isset($notOnlyLink)) $notOnlyLink=true;
         array_push($stack, $path . "." . $pubKey);
         $currentPath=$path;
-        logs("Begin Proces of " . $pubKey . "+++" , $depth);
+        logs("+----=Begin Process of " . $pubKey . "=($notOnlyLink)----+" , $depth);
+        if (!$notOnlyLink) {
+                logs("Links Only" , $depth);
+        }
+        $skip=0;
 
-        $res=shell_exec("./cexec \"RouterModule_getPeers('" . $path  . "')\"");
-        logs("EXEC:  ./cexec \"RouterModule_getPeers('" . $path  . "')\"",$depth);
-        $res=json_decode($res);
-
-
-
-$skip=0;
         //First add links
+        $peers= getPeers($path,$pubKey);
+        logs("---------------------[LINKS]-------------------",$depth);
 
-        if (isset($res->peers))  {
-            $p=$res->peers;
 
+        if (count($peers)>0)  {
+                $p=$peers;
 
                 $pr=$p[0];
                 $pr2=explode(".",$pr);
@@ -77,36 +116,39 @@ $skip=0;
                 $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
                 if ($NewPath=="0000.0000.0000.0001") {
                         if ($newPubKey  !=  $pubKey) {
-                                logs("*******WRONG NODE - SKUPPING*",$depth);
-print_r($stack);
-$skip=1;
+                                logs("*******WRONG NODE - SKIPPING*********",$depth);
+                                print_r($stack);
+                                $skip=1;
                         }
                 } else {
-echo $newPubKey . "!=" . $pubKey;
+                        echo $newPubKey . "!=" . $pubKey;
                         die("WRONG PATH");
                 }
 
 
-logs("---------------------[LINKS]-------------------",$depth);
-if (!$skip) {
-            foreach ($p as $pr) {
-                $pr2=explode(".",$pr);
-                $newPubKey=$pr2[5] . ".k"; //Make NEW Pub Key
-                $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
-                logs("Found $newPubKey over $NewPath",$depth);
-                $res=addLink($pubKey,$newPubKey);
+                if (!$skip) {
+                    foreach ($p as $pr) {
+                        $pr2=explode(".",$pr);
+                        $newPubKey=$pr2[5] . ".k"; //Make NEW Pub Key
+                        $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
+                        logs("Found $newPubKey over $NewPath",$depth);
+                        $res=addLink($pubKey,$newPubKey,$notOnlyLink);
 
-            }
-            unset($newPubKey);
+                    }
+                    unset($newPubKey);
 
+                        logs("---------------------[NODES]-------------------",$depth);
 
-            //Next Recusrse
-            foreach ($p as $pr) {
+                    //Next Recusrse
+                    foreach ($p as $pr) {
                         $pr2=explode(".",$pr);
                         $NewPath=$pr2[1] ."." . $pr2[2] . "." . $pr2[3] . "." . $pr2[4]; //Make NEW PATH
                         $newPubKey=$pr2[5] . ".k"; //Make NEW Pub Key
+
                         if ($NewPath!="0000.0000.0000.0001") { //dont process if im processing myself
-                            if (!isset($checkedNode[$newPubKey]) && isset($wl[toIP($newPubKey)]) ) { //If i have not been to this node before
+                                $iswl=false;
+                                if ( isset($wl[toIP($newPubKey)])  ) $iswl=true;
+                            if (!isset($checkedNode[$newPubKey]) && $notOnlyLink==true) { //If i have not been to this node before
                                 $checkedNode[$newPubKey]=1;
                                 //logs ($NewPath . "--" . $pubKey .  " -> " . $ip ,$depth);
                                 $depth++;
@@ -122,7 +164,7 @@ echo " $res3 = " . $res2->result . "\n";
 
                                        $NewPath=$res2->result;
 */
-                                        ProcessManual($NewPathSplice,$newPubKey); //Starting Point
+                                        ProcessManual($NewPathSplice,$newPubKey,$iswl); //Starting Point
   //                              } else {
 //                                      logs("Error $newPubKey / $path / $NewPath "  . $res2->error, $depth);
 //                              }
@@ -132,7 +174,7 @@ echo " $res3 = " . $res2->result . "\n";
                                 if (isset($checkedNode[$newPubKey])) {
                                         logs("Skipping $newPubKey - Been Dere",$depth);
                                 } elseif(!isset($wl[toIP($newPubKey)])) {
-                                        logs("Skipping $newPubKey - Not white " ,$depth);
+                                        logs("Skipping $newPubKey - Not white " . toIP($newPubKey) ,$depth);
                                 } else {
                                         logs("Skipping $newPubKey - no idea why",$depth);
 
@@ -171,15 +213,17 @@ function ProcessSNode() {
                         }
 }
 ProcessManual ('0000.0000.0000.0001',"ksdkzmw2uryvkfg187kxmkdup8k78urqzpn29zh1nxvl6wfdbjk0.k"); //Starting Point
+//ProcessSnode();
 //ProcessSNode();
 foreach ($links as $k=>$link) {
+
 
         //echo $from . "=" . $to . "\n";
         $from=trim(shell_exec("/opt/cjdns/publictoip6 " . $k));
 //$from=$k;
         foreach ($link as $k2=>$parent) {
-
-        $to=trim(shell_exec("/opt/cjdns/publictoip6 " . $k2));
+                if (isset($oknodes[$k]) && isset($oknodes[$k2])) {  //Only add links that are actualy directly related to whitelisted nodes
+                $to=trim(shell_exec("/opt/cjdns/publictoip6 " . $k2));
 //$to=$k2;
 //echo $wl[$from] . " " . $wl[$to];
 //if (isset($wl[$from]) || isset($wl[$to])) {
@@ -190,7 +234,7 @@ foreach ($links as $k=>$link) {
             $n[]=$r;
             unset($r);
 //}
-
+}
                 }
 }
 

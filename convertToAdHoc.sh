@@ -1,8 +1,8 @@
 #!/bin/bash
 
-sudo systemctl daemon-reload
-sudo systemctl disable hostapd.service
-sudo systemctl  stop hostapd.service
+sudo systemctl daemon-reload || true
+sudo systemctl disable hostapd.service || true
+sudo systemctl  stop hostapd.service || true
 
 
 cat << 'EOF' > /usr/bin/mesh
@@ -28,7 +28,7 @@ sudo ifconfig $mesh_dev up
 sudo iw dev $mesh_dev ibss join tomesh 2412 HT40+
 
 # Restart cjdns
-sudo killall cjdroute
+sudo killall cjdroute 
 EOF
 
 chmod +x /usr/bin/mesh
