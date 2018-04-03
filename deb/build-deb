@@ -17,8 +17,8 @@ mkdir -p ../usr/bin
 cp cjdroute ../usr/bin
 
 mkdir -p ../usr/share/cjdns
-cp -R tools/* ../usr/share/cjdns/
-cp -R node_modules/* ../usr/share/cjdns/
+cp -R tools ../usr/share/cjdns/
+cp -R node_modules ../usr/share/cjdns/
 cp privatetopublic  ../usr/share/cjdns
 cp publictoip6  ../usr/share/cjdns
 
