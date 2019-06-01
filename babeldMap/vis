@@ -1,0 +1,48 @@
+#!/bin/sh
+printf "Content-type: text/html\n\n"
+
+echo "{"
+start=0
+current='';
+
+echo dump | nc :: 999 | while read p
+do
+    index=$((index+1))
+    parm=$(echo $p | cut -d" " -f 1 )
+    parm2=$(echo $p | cut -d" " -f 2)
+    case $parm in
+        ok)
+        ;;
+        BABEL|version|host|my-id)
+            echo "\"$parm\" : \"$parm2\","
+        ;;
+        *)
+            if [ "$start" == '0' ]; then
+                echo "\"noop\" : {"
+                start='1'
+            fi
+
+            if [[ "$current" != "$parm2" ]]; then 
+                echo " \"noop\" : \"\" }, \"$parm2\" : {"
+                current="$parm2"
+            fi
+
+            case $parm2 in
+                interface)
+                    echo "\"$(echo $p | cut -d" " -f 3)\" : { \"all\": \"$p\"},"
+                ;;
+                neighbour)
+                    echo "\"$(echo $p | cut -d" " -f 3)\"  : { \"ip\": \"$(echo $p | cut -d" " -f 5)\", \"if\" : \"$(echo $p | cut -d" " -f 7)\", \"all\" :\"$p\" }, ";
+                ;;
+                route)
+                        echo  "\"$(echo $p | cut -d" " -f 3)\" : { \"installed\" : \"$(echo $p | cut -d" " -f 9)\", \"target\" : \"$(echo $p | cut -d" " -f 5)\" ,\"ip\":\"$(echo $p | cut -d" " -f 17)\", \"all\" : \"$p\" }, ";
+                ;;
+                *)
+                    echo "\"$parm2$index\" : { \"all\" : \"$p\" }, ";
+                ;;
+            esac
+        ;;
+    esac
+done
+echo " \"noop\" : \"\" }"
+echo "}"
