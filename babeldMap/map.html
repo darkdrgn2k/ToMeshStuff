@@ -1,19 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-   <head>
-      <meta http-equiv="Cache-Control" content="no-cache" />
-      <meta http-equiv="refresh" content="0; URL=/cgi-bin/luci/" />
-   </head>
-   <body style="background-color: white">
-      <a style="color: black; font-family: arial, helvetica, sans-serif;" href="/cgi-bin/luci/">LuCI - Lua Configuration Interface</a>
-   </body>
-</html>
-root@NODE152-206:/www# cat map.html 
 <html>
    <head>
-      <script type="text/javascript" src="vis.min.js"></script>
-      <link href="vis.min.css" rel="stylesheet" type="text/css" />
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+      <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
       <style type="text/css">
          #mynetwork {
          width: 100%;
@@ -26,23 +14,14 @@ root@NODE152-206:/www# cat map.html
       <div id="mynetwork"></div>
       <script>
          function LoadXMLDoc() {
-           var xmlhttp = new XMLHttpRequest();
-           xmlhttp.onreadystatechange = function() {
-             if (this.readyState == 4 && this.status == 200) {
-               Map(this);
-             }
-           };
-           xmlhttp.open("GET", "/cgi-bin/vis", true);
-           xmlhttp.send();
-         }
-         
-         
-           nodesArray=[{id: 0, label: 'Me'}];
+
+//           nodesArray=[{id: 0, label: 'Me'}];
+           nodesArray=[];
            edgesArray = [];
-         
+
            nodes = new vis.DataSet(nodesArray);
            edges = new vis.DataSet(edgesArray);
-         
+
            var container = document.getElementById('mynetwork');
            var data = {
                nodes: nodes,
@@ -50,30 +29,83 @@ root@NODE152-206:/www# cat map.html
            };
            var options = {};
            network= new vis.Network(container, data, options);
-         
-         
-         
-         function Map(ajax) {
+        network.on("doubleClick", function (params) {
+            params.event = "[original event]";
+            var n=nodes._data[params.nodes[0]];
+            if (n.color=="#ccffff") {
+               nodes.update({id:n.label, color:'#cc0000'});
+               LoadMap(n.label+"%25" + nodesToScan[n.label]);
+	    } else {
+               alert(n.id);
+            }
+       });
+
+
+
+             LoadMap("");
+         }
+
+         function LoadMap(ip) {
+           var xmlhttp = new XMLHttpRequest();
+           xmlhttp.onreadystatechange = function() {
+             if (this.readyState == 4 && this.status == 200) {
+               if (this.response) 
+                   Map(this,ip);
+             }
+           };
+           xmlhttp.open("GET", "/cgi-bin/vis?" + ip, true);
+           xmlhttp.send();
+         }
+                  
+         var addedNodes= Array();
+         var nodesToScan = Array();
+
+         var NodeList = Array();
+         var InterfaceList = Array();
+         function Map(ajax,ip) {
+           var if2ip = Array();
+
+           if (ip) delete nodesToScan[ip];
+           if (!ip) ip=0;
            var Nodes;
            var NodeExist=Array();
            str=ajax.response;
            Nodes=JSON.parse(str);
          
-         
+           myid=Nodes["my-id"].replace(":","");
+           
+           NodeList[myid]=nodes.add({id: myid, label: myid})
            for (var i in Nodes.interface) {
                node=Nodes.interface[i];
-               nodes.add({id:i, label:i, color:'#cccccc' });
-               edges.add({id:i, from: i, to: 0});
+               if (i !="noop")
+               if (nodes._data[node.ip]) {
+                   var currentNode=nodes._data[node.ip];
+                   nodes.update({id:node.ip, label:i, color:'#cccccc'});
+
+               } else {
+                   InterfaceList[node.ip]=nodes.add({id:node.ip, label:i, color:'#cccccc' });
+
+               }
+               edges.add({id:node.ip + myid, from: node.ip, to: myid});
+
+               if2ip[i]=node.ip;
          
            }
            for (var i in Nodes.neighbour) {
                var addr=i;
                node=Nodes.neighbour[i];
-               nodes.add({id:node.ip, label:node.ip, color:'#ccffff'});
-               edges.add({id:node.ip, from: node.ip, to: node.if});
+               //lbl=node.mac;
+               lbl=node.ip;
+               if (!nodes._data[node.ip] && i !="noop" ) {
+                   if (!addedNodes[node.ip]) {
+                       addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
+                       edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
+                       nodesToScan[node.ip]=node.if;
+                   }
+               }
          
            }
-         
+        /* 
            for (var i in Nodes.route) {
                node=Nodes.route[i];
                if (node.installed=='yes') {
@@ -81,8 +113,10 @@ root@NODE152-206:/www# cat map.html
                  edges.add({id:i, from: node.ip, to: i});
                }
            }
-         
-         }
+        */
+       
+
+        }
          LoadXMLDoc();
       </script>
    </body>
