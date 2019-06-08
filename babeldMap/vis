@@ -1,9 +1,34 @@
 #!/bin/sh
+# Netcat may need an update to support ipv6 and add -w 1 to string
+# wget somtimes does not support ipv6 so curl is ues if possible
+# openwrt users /bin/sh not bash
 printf "Content-type: text/html\n\n"
 
-echo "{"
+function getmac {
+   re=$(ip -6 neighbor show | grep $1 | awk '{print $5}')
+   echo $re
+}
+function getsignal {
+  re=$(iw wlan1 station dump | grep -A 12 "$1"  | grep signal\ avg | awk '{print $3}')
+  echo $re
+}
+function getifmac {
+    echo ifconfig  $1 | head -n 1 | awk '{print tolower($5)}'
+}
+
 start=0
 current='';
+if [ ! -z "$QUERY_STRING" ]; then
+    if [ -z "$(which curl)" ]; then
+        wget -qO- http://[$QUERY_STRING]/cgi-bin/vis
+    else
+        curl -q http://[$QUERY_STRING]/cgi-bin/vis
+    fi
+exit
+fi
+
+
+echo "{"
 
 echo dump | nc :: 999 | while read p
 do
@@ -29,10 +54,16 @@ do
 
             case $parm2 in
                 interface)
-                    echo "\"$(echo $p | cut -d" " -f 3)\" : { \"all\": \"$p\"},"
+                    iface="$(echo $p | cut -d" " -f 3)"
+                    ip="$(echo $p | cut -d" " -f 7)"
+                    mac=$(getifmac $iface)
+                    echo "\"$iface\" : { \"ip\":\"$ip\",\"mac\":\"$mac\", \"all\": \"$p\"},"
                 ;;
                 neighbour)
-                    echo "\"$(echo $p | cut -d" " -f 3)\"  : { \"ip\": \"$(echo $p | cut -d" " -f 5)\", \"if\" : \"$(echo $p | cut -d" " -f 7)\", \"all\" :\"$p\" }, ";
+                    ip=$(echo $p | cut -d" " -f 5)
+                    mac=$(getmac $ip)
+                    signal=$(getsignal $mac)
+                    echo "\"$(echo $p | cut -d" " -f 5)\"  : { \"ip\": \"$ip\", \"if\" : \"$(echo $p | cut -d" " -f 7)\", \"all\" :\"$p\", \"mac\" : \"$mac\", \"signal\":\"$signal\" }, ";
                 ;;
                 route)
                         echo  "\"$(echo $p | cut -d" " -f 3)\" : { \"installed\" : \"$(echo $p | cut -d" " -f 9)\", \"target\" : \"$(echo $p | cut -d" " -f 5)\" ,\"ip\":\"$(echo $p | cut -d" " -f 17)\", \"all\" : \"$p\" }, ";
@@ -46,3 +77,4 @@ do
 done
 echo " \"noop\" : \"\" }"
 echo "}"
+
