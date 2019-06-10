@@ -1,25 +1,34 @@
 # Installation
 
-place map.html in html root
+Install a web server
+
+Debian/Ubuntu: sudo apt-get install nginx fcgiwrap -y
+Openwrt: opkg install uhttpd
+
+
+Place map.html in html root
 
 /var/www/html  or /www
 
 Place vis in cgi-bin and make +x
 
-/var/www/html/cgi-bin  or /www/cgi-bin
+Debian/Ubuntu: /var/www/html/cgi-bin 
+Openwrt: /www/cgi-bin
+chmod +x vis
 
-For OpenWrt
+For OpenWrt in vis
 change `#!/bin/bash` to `#!/bin/sh`
 remove `-w 1` in `nc :: 999` line
-install uhttpd (opkg install uhttpd)
 
-*NOTE*
+*NOTES*
 Debian NC does not work with ipv6 you need to update to differnt version
+see https://unix.stackexchange.com/questions/457670/netcat-how-to-listen-on-a-tcp-port-using-ipv6-address
+sudo apt-get install -y netcat-openbsd
 
-Front end currentyl pulls vis.js nad css from CDN
+Front end currentyl pulls vis.js js and css from CDN
 Copy local and update header of map.html for offline use.
 
-Run babled `-G 999` or update port
+Run babled `-G 999` or update port in vis
 
 # How it works
 
