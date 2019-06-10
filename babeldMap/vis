@@ -1,7 +1,4 @@
-#!/bin/sh
-# Netcat may need an update to support ipv6 and add -w 1 to string
-# wget somtimes does not support ipv6 so curl is ues if possible
-# openwrt users /bin/sh not bash
+#!/bin/bash
 printf "Content-type: text/html\n\n"
 
 function getmac {
@@ -18,11 +15,13 @@ function getifmac {
 
 start=0
 current='';
+QUERY_STRING=$(echo "$QUERY_STRING" | tr -dc '[:digit:]\.')
+
 if [ ! -z "$QUERY_STRING" ]; then
     if [ -z "$(which curl)" ]; then
-        wget -qO- http://[$QUERY_STRING]/cgi-bin/vis
+        wget -qO- http://$QUERY_STRING/cgi-bin/vis
     else
-        curl -q http://[$QUERY_STRING]/cgi-bin/vis
+        curl -q http://$QUERY_STRING/cgi-bin/vis
     fi
 exit
 fi
@@ -30,7 +29,7 @@ fi
 
 echo "{"
 
-echo dump | nc :: 999 | while read p
+echo dump | nc :: 999 -w 1 | while read p
 do
     index=$((index+1))
     parm=$(echo $p | cut -d" " -f 1 )
@@ -66,7 +65,13 @@ do
                     echo "\"$(echo $p | cut -d" " -f 5)\"  : { \"ip\": \"$ip\", \"if\" : \"$(echo $p | cut -d" " -f 7)\", \"all\" :\"$p\", \"mac\" : \"$mac\", \"signal\":\"$signal\" }, ";
                 ;;
                 route)
-                        echo  "\"$(echo $p | cut -d" " -f 3)\" : { \"installed\" : \"$(echo $p | cut -d" " -f 9)\", \"target\" : \"$(echo $p | cut -d" " -f 5)\" ,\"ip\":\"$(echo $p | cut -d" " -f 17)\", \"all\" : \"$p\" }, ";
+                    routeid="$(echo $p | cut -d" " -f 3)"
+                    nodeid="$(echo $p | cut -d" " -f 11)"
+                        echo  "\"$routeid\" : { \"nodeid\":\"$nodeid\", \"installed\" : \"$(echo $p | cut -d" " -f 9)\", \"target\" : \"$(echo $p | cut -d" " -f 5)\" ,\"ip\":\"$(echo $p | cut -d" " -f 17)\", \"all\" : \"$p\" }, ";
+                ;;
+                xroute)
+                      route=$(echo $p | cut -d" " -f 5)
+                      echo "\"$parm2$index\" : { \"route\": \"$route\" , \"all\" : \"$p\" }, ";
                 ;;
                 *)
                     echo "\"$parm2$index\" : { \"all\" : \"$p\" }, ";
