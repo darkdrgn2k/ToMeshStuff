@@ -29,6 +29,7 @@ it will then parse it into valid xml.
 
 If paramter is passed via command like vis will instead download `/cgi-bin/vis` from specified ip address
 
+vis will augment information by  resolving local mac address information and peered mac address information.  It will also attempte to  prefore a `station dump` and mary TX strength data to links.
 # map.html
 
 AJAX pulls /cgi-bin/vis xml file
