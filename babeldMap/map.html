@@ -1,176 +1,195 @@
 <html>
-   <head>
-      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-      <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
-      <style type="text/css">
-         #mynetwork {
-         width: 100%;
-         height: 100%;
-         border: 1px solid lightgray;
-         }
-      </style>
-   </head>
-   <body>
-      <div id="mynetwork"></div>
-      <script>
-         function LoadXMLDoc() {
+    <head>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+        <style type="text/css">
+            #mynetwork {
+                width: 100%;
+                height: 100%;
+                border: 1px solid lightgray;
+            }
+            #status {
+                border:1px #cccccc solid;
+                background:#eeeeee;
+                width:250px;
+                height:25px;
+                position: absolute;
+                z-index:100;
+                top: 5px;
+                left: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="status"></div>
+        <div id="mynetwork"></div>
+        <script>
+            function setStatus(txt) {
+		document.getElementById("status").innerHTML=txt;
+            }
+            function LoadXMLDoc() {
+                setStatus("Prepping..");
+                nodesArray=[]; //vis.js array of nodes
+                edgesArray = []; //vis.js array of edges (links)
+          
+                nodes = new vis.DataSet(nodesArray);
+                edges = new vis.DataSet(edgesArray);
+          
+                var container = document.getElementById('mynetwork');
+                var data = {
+                    nodes: nodes,
+                    edges: edges
+                };
+                var options = {
+                    physics: { 
+                        enabled: true, 
+                        barnesHut: {
+                            damping:0.3,
+                            springLength: 20 
+                        }
+                    },
+                    layout: {
+                        improvedLayout:false
+                    }
+                };
 
-           nodesArray=[];
-           edgesArray = [];
+                network= new vis.Network(container, data, options);
 
-           nodes = new vis.DataSet(nodesArray);
-           edges = new vis.DataSet(edgesArray);
+                /* Double click no needed anymore
+                network.on("doubleClick", function (params) {
+                    params.event = "[original event]";
+                    var n=nodes._data[params.nodes[0]];
+          
+                    if (n.color=="#ccffff") {
+                        nodes.update({id:n.label, color:'#cc0000'});
+                        ip=ipv4[n.label];
+            //                 LoadMap(n.label+"%25" + nodesToScan[n.label]);
+            //                  LoadMap(ip);
+                    } else {
+                        alert(n.id);
+                    }
+                });
+                */
+                LoadMap(""); // Start loading the map
+            }
+          
+            function LoadMap(ip) {
+                setStatus("Requesting " + ip + "...");
+                var xmlhttp = new XMLHttpRequest();
+                xmlhttp.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200) {
+                        if (this.response && this.response.indexOf('"BABEL" : "1.0"')>1 ) {
+                            Map(this,ip);
+                        } else {
+                            mapNext(ip);
+                        }
+                    }
+                };
+                xmlhttp.open("GET", "/cgi-bin/vis?" + ip, true);
+                xmlhttp.send();
+            }
+                   
+            var addedNodes= Array();
+            var NodeList = Array();
+            var InterfaceList = Array();
+            
+            var KnownIPS = {};//Array();
+            
+            function Map(ajax,ip) {
 
-           var container = document.getElementById('mynetwork');
-           var data = {
-               nodes: nodes,
-               edges: edges
-           };
-           var options = {
-			   physics: { 
-				enabled: true, 
-				barnesHut: {
-					damping:0.3,
-                  			springLength: 20 
-				}
-			   },
-			   layout: {
-			   	improvedLayout:false
-			   },
-			 };
-           network= new vis.Network(container, data, options);
-           network.on("doubleClick", function (params) {
-               params.event = "[original event]";
-               var n=nodes._data[params.nodes[0]];
+                var if2ip = Array();
+          
+                if (!ip) ip=0;
+                var Nodes;
+                var NodeExist=Array();
+                str=ajax.response;
+                Nodes=JSON.parse(str);
+          
+                myid=Nodes["my-id"];
+            
+                NodeList[myid]=nodes.add({id: myid, label: myid})
 
-               if (n.color=="#ccffff") {
-                  nodes.update({id:n.label, color:'#cc0000'});
-                  ip=ipv4[n.label];
- //                 LoadMap(n.label+"%25" + nodesToScan[n.label]);
-//                  LoadMap(ip);
-	       } else {
-                  alert(n.id);
-               }
-           });
-
-
-
-             LoadMap("");
-         }
-
-         function LoadMap(ip) {
-           var xmlhttp = new XMLHttpRequest();
-           xmlhttp.onreadystatechange = function() {
-             if (this.readyState == 4 && this.status == 200) {
-               if (this.response && this.response.indexOf('"BABEL" : "1.0"')>1 ) {
-                   Map(this,ip);
-                } else {
-                   mapNext(ip);
+                // Store a list of /32 address that this instance of babeld knows about
+                for (var i in Nodes.route) {
+                    route=Nodes.route[i];
+                    if (i!="noop")
+                        if (route.target.indexOf("/32")>1 && !KnownIPS[route.target.replace("/32","")]) {
+                            KnownIPS[route.target.replace("/32","")]=1
+                        }
                 }
-             }
-           };
-           xmlhttp.open("GET", "/cgi-bin/vis?" + ip, true);
-           xmlhttp.send();
-         }
-                  
-         var addedNodes= Array();
-         var nodesToScan = Array();
-         var ipv4 = Array();
-         var ipv4id = Array();
-         var NodeList = Array();
-         var InterfaceList = Array();
+          
+                //Gray interfaces
+                for (var i in Nodes.interface) {
+                    node=Nodes.interface[i];
+                    if (i !="noop")
 
-	 var KnownIPS = {};//Array();
-         function Map(ajax,ip) {
-           var if2ip = Array();
+                    // Node exists Then update it
+                    if (nodes._data[node.ip]) {
+                        var currentNode=nodes._data[node.ip];
+                        nodes.update({id:node.ip, label:i, color:'#cccccc'});
+                    } else {
+                    // Node does not exist. Update it
+                        InterfaceList[node.ip]=nodes.add({id:node.ip, label:i, color:'#cccccc' });
+                    }
 
-           if (ip) delete nodesToScan[ip];
-           if (!ip) ip=0;
-           var Nodes;
-           var NodeExist=Array();
-           str=ajax.response;
-           Nodes=JSON.parse(str);
-         
-           myid=Nodes["my-id"];
-           
-           NodeList[myid]=nodes.add({id: myid, label: myid})
-
-
-           for (var i in Nodes.route) {
-               route=Nodes.route[i];
-               if (i!="noop")
-                   if (route.target.indexOf("/32")>1 && !KnownIPS[route.target.replace("/32","")]) {
-                      KnownIPS[route.target.replace("/32","")]=1
-                   }
-           }
-
-           for (var i in Nodes.interface) {
-               node=Nodes.interface[i];
-               if (i !="noop")
-               if (nodes._data[node.ip]) {
-                   var currentNode=nodes._data[node.ip];
-                   nodes.update({id:node.ip, label:i, color:'#cccccc'});
-
-               } else {
-                   InterfaceList[node.ip]=nodes.add({id:node.ip, label:i, color:'#cccccc' });
-
-               }
-               if (!edges._data[node.ip + myid])
-                   edges.add({id:node.ip + myid, from: node.ip, to: myid, length:1});
-               if2ip[i]=node.ip;
-         
-           }
-           for (var i in Nodes.neighbour) {
-               var addr=i;
-               node=Nodes.neighbour[i];
-               //lbl=node.mac;
-               lbl=node.ip;
-               if (!nodes._data[node.ip] && i !="noop" ) {
-                   if (!addedNodes[node.ip]) {
-                       addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
-                       edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
-                       nodesToScan[node.ip]=node.if;
-                   }
-               }
-         
-           }
-         
-           for (var i in Nodes.xroute) {
-               node=Nodes.xroute[i];
-               if (i !="noop") {
-                 nodes.add({id:i + myid, label:node.route, color:'#ffccff' });
-                 edges.add({id:i + myid, from: myid, to: i + myid});
-
-
-                 if (node.route.indexOf("/32")>1) {
-                    testIP=node.route.replace("/32","");
-                    KnownIPS[testIP]=2;
-                    
-                 }
+                    // I link between nodes does not exist,add it
+                    if (!edges._data[node.ip + myid])
+                        edges.add({id:node.ip + myid, from: node.ip, to: myid, length:1});
+                    if2ip[i]=node.ip;
                 }
-           }
 
-           mapNext(ip);
-     
-        }
-        function mapNext(ip) {
+                //Cyan Neigbour nodes 
+                for (var i in Nodes.neighbour) {
+                    var addr=i;
+                    node=Nodes.neighbour[i];
+                    //lbl=node.mac;
+                    lbl=node.ip;
+                    if (!nodes._data[node.ip] && i !="noop" ) {
+                        if (!addedNodes[node.ip]) {
+                            addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
+                            edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
+                        }
+                    }
+                }
+          
+                for (var i in Nodes.xroute) {
+                    node=Nodes.xroute[i];
+                    if (i !="noop") {
+                        nodes.add({id:i + myid, label:node.route, color:'#ffccff' });
+                        edges.add({id:i + myid, from: myid, to: i + myid});
 
-           if (ip) {
-               KnownIPS[ip]=3;
-           }
+                        // If node has a /32 ip address flag it so it doesnt get scanned again
+                        if (node.route.indexOf("/32")>1) {
+                            testIP=node.route.replace("/32","");
+                            KnownIPS[testIP]=2; 
+                        }
+                    }
+                }
+                mapNext(ip);
+          
+            }
 
-           console.log(JSON.stringify(KnownIPS));
+            // function will scan the next available /32 address
+            function mapNext(ip) {
+          
+                // Flag current address as scanned
+                if (ip) {
+                    KnownIPS[ip]=3;
+                }
+          
+                console.log(JSON.stringify(KnownIPS));
 
-           for (var key in KnownIPS){
-              if (KnownIPS[key]==1) {
-                  LoadMap(key);
-                  return;
-              }
-          }
-
-       }
-
-         LoadXMLDoc();
-      </script>
-   </body>
-</html>
+                // run the next ip in list that was not scanned
+                for (var key in KnownIPS){
+                    if (KnownIPS[key]==1) {
+                        LoadMap(key);
+                        return;
+                    }
+                }
+                 setStatus("Load complete.");         
+            }
+          
+            LoadXMLDoc();
+       </script>
+    </body>
+ </html>
