@@ -6,11 +6,11 @@ function getmac {
    echo $re
 }
 function getsignal {
-  re=$(iw wlan1 station dump | grep -A 12 "$1"  | grep signal\ avg | awk '{print $3}')
+  re=$(iw $1 station dump | grep -A 12 "$2"  | grep signal\ avg | awk '{print $3}')
   echo $re
 }
 function getifmac {
-    echo ifconfig  $1 | head -n 1 | awk '{print tolower($5)}'
+    echo $(ifconfig  $1 | head -n 1 | awk '{print tolower($5)}')
 }
 
 start=0
@@ -61,9 +61,9 @@ do
                 neighbour)
                     ip=$(echo $p | cut -d" " -f 5)
                     mac=$(getmac $ip)
-                    signal=$(getsignal $mac)
-                    echo "\"$(echo $p | cut -d" " -f 5)\"  : { \"ip\": \"$ip\", \"if\" : \"$(echo $p | cut -d" " -f 7)\", \"all\" :\"$p\", \"mac\" : \"$mac\", \"signal\":\"$signal\" }, ";
-                ;;
+                    ifname=$(echo $p | cut -d" " -f 7)                                                                                                                                                             
+                    signal=$(getsignal $ifname $mac)                                                                                                                                                               
+                    echo "\"$(echo $p | cut -d" " -f 5)\"  : { \"ip\": \"$ip\", \"if\" : \"$ifname\", \"all\" :\"$p\", \"mac\" : \"$mac\", \"signal\":\"$signal\" }, ";                  ;;
                 route)
                     routeid="$(echo $p | cut -d" " -f 3)"
                     nodeid="$(echo $p | cut -d" " -f 11)"
