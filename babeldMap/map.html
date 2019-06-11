@@ -8,7 +8,7 @@
                 height: 100%;
                 border: 1px solid lightgray;
             }
-            #status {
+            #status, #legend {
                 border:1px #cccccc solid;
                 background:#eeeeee;
                 width:250px;
@@ -18,9 +18,17 @@
                 top: 5px;
                 left: 5px;
             }
+            #legend { top:inherit; bottom:5px; left:inherit; right:5px; height:100px; }
         </style>
     </head>
     <body>
+        <div id="legend">
+        <b>Legend</b><br>
+        <span style="background-color: #3333ff">Node</span><br>
+        <span style="background-color: #cccccc">Node's Interface</span><br>
+        <span style="background-color: #ccffff">Uncrawled Neighbour</span><br>
+        <span style="background-color: #ffccff">Announced Address</span><br>
+        </div>
         <div id="status"></div>
         <div id="mynetwork"></div>
         <script>
@@ -144,14 +152,11 @@
                     node=Nodes.neighbour[i];
                     //lbl=node.mac;
                     lbl=node.ip;
-                    if (i!='noop') {
-                        if (!nodes._data[node.ip] ) {
-                            if (!addedNodes[node.ip]) {
-                                addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
-                            }
+                    if (!nodes._data[node.ip] && i !="noop" ) {
+                        if (!addedNodes[node.ip]) {
+                            addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
+                            edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
                         }
-                        if (!edges._data[node.ip + if2ip[node.if]] &&  !edges._data[if2ip[node.if] + node.ip])
-                            edges.add({id:node.ip + if2ip[node.if], from: node.ip, to: if2ip[node.if], label:node.signal});
                     }
                 }
           
