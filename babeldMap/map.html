@@ -144,11 +144,14 @@
                     node=Nodes.neighbour[i];
                     //lbl=node.mac;
                     lbl=node.ip;
-                    if (!nodes._data[node.ip] && i !="noop" ) {
-                        if (!addedNodes[node.ip]) {
-                            addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
-                            edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
+                    if (i!='noop') {
+                        if (!nodes._data[node.ip] ) {
+                            if (!addedNodes[node.ip]) {
+                                addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
+                            }
                         }
+                        if (!edges._data[node.ip + if2ip[node.if]] &&  !edges._data[if2ip[node.if] + node.ip])
+                            edges.add({id:node.ip + if2ip[node.if], from: node.ip, to: if2ip[node.if], label:node.signal});
                     }
                 }
           
