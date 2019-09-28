@@ -15,16 +15,17 @@ sync && reboot
 ### INSTALL PACKAGE -- Configure the network manually to a local ones so new files can be downloaded.  
 NETWORKIP=192.168.40.66
 GATEWAY=192.168.40.1
-
+#or
 NETWORKIP=172.20.4.143
 GATEWAY=172.20.4.1
-
+#or
 NETWORKIP=10.42.0.111
 GATEWAY=10.42.0.1
 
 ifconfig br-lan:1 $NETWORKIP
-
+#or
 ifconfig eth0 $NETWORKIP
+
 ip route add 0.0.0.0/0 via $GATEWAY
 echo nameserver 8.8.8.8 > /tmp/resolv.conf
 
@@ -137,7 +138,12 @@ echo "config interface 'wlan1'" >> /etc/config/babeld
 echo "    option 'ifname' 'wlan1'" >> /etc/config/babeld
 
 
-## FIREWALL ## TODO set FORWARD ACCEPT
+## FIREWALL ## Reset firewall
+echo > /etc/config/firewall
+uci add firewall defaults
+uci set firewall.@defaults[0].syn_flood=1
+uci set firewall.@defaults[0].input='ACCEPT'
+uci set firewall.@defaults[0].output='ACCEPT'
 uci set firewall.@defaults[0].forward='ACCEPT'
 uci commit
 
@@ -153,7 +159,7 @@ uci set wireless.AP.network='AP'
 uci set wireless.AP.ssid="$MESHAP"
 uci commit
 
-#####AP Instead
+#####AP network
 uci set dhcp.@dnsmasq[0].server=1.1.1.1
 
 # Configur AP ip address
@@ -280,10 +286,11 @@ done
 EOF
 chmod +x /usr/bin/leds
 cat <<"EOF"> /etc/rc.local
-/usr/bin/leds
+#!/bin/sh
+/usr/bin/leds &
 exit 0
 EOF
-
+chmod +x /etc/rc.local
 #TPLINK
 cat <<"EOF"> /usr/bin/leds
 #!/bin/ash
