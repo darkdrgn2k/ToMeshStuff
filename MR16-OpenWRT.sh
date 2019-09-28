@@ -193,6 +193,59 @@ echo redistribute if $APIF metric 128 >> /etc/babeld.conf
 echo redistribute local if $APIF metric 128 >> /etc/babeld.conf
 echo redistribute local deny >> /etc/babeld.conf
 
+
+####################### FAKE_NODE_EXPORTER #######################3
+
+uci set uhttpd.node=uhttpd
+uci set uhttpd.node.listen_http='0.0.0.0:9100'
+uci set uhttpd.node.home='/www'
+uci set uhttpd.node.rfc1918_filter='1'
+uci set uhttpd.node.max_requests='3'
+uci set uhttpd.node.max_connections='100'
+uci set uhttpd.node.script_timeout='60'
+uci set uhttpd.node.network_timeout='30'
+uci set uhttpd.node.http_keepalive='20'
+uci set uhttpd.node.tcp_keepalive='1'
+uci set uhttpd.node.cgi_prefix='/metrics'
+uci commit
+/etc/init.d/uhttpd restart
+
+cat <<"EOF"> /www/metrics
+#!/bin/sh
+printf "Content-type: text/html\n\n"
+
+for net in /sys/class/net/*; do
+   int="$(basename "$net")"
+   echo node_network_receive_bytes{device=\"$int\"} $(cat /sys/class/net/$int/statistics/rx_bytes)
+   echo node_network_transmit_bytes{device=\"$int\"} $(cat /sys/class/net/$int/statistics/tx_bytes)
+   echo node_network_receive_packets{device=\"$int\"} $(cat /sys/class/net/$int/statistics/rx_packets)
+   echo node_network_transmit_packets{device=\"$int\"} $(cat /sys/class/net/$int/statistics/tx_packets)
+   echo node_network_receive_errs{device=\"$int\"} $(cat /sys/class/net/$int/statistics/rx_errors)
+   echo node_network_transmit_errs{device=\"$int\"} $(cat /sys/class/net/$int/statistics/tx_errors)
+   echo node_network_receive_drop{device=\"$int\"} $(cat /sys/class/net/$int/statistics/rx_dropped)
+   echo node_network_transmit_drop{device=\"$int\"} $(cat /sys/class/net/$int/statistics/tx_dropped)
+   
+  if [ -d "/sys/class/net/$int/wireless" ]; then
+    for ST in $(iw $int station dump | grep Station  | awk '{print $2}')
+    do
+      mac="$(cat /sys/class/net/$int/address)"
+      res=$(iw $int station dump | grep -A 15 $ST | grep rx\ bytes | awk '{print $3}')
+      echo mesh_node_rx{sourcemac=\"$mac\",device=\"$int\",target=\"$ST\"} $res
+      res=$(iw $int station dump | grep -A 15 $ST | grep tx\ bytes | awk '{print $3}')  
+      echo mesh_node_tx{sourcemac=\"$mac\",device=\"$int\",target=\"$ST\"} $res
+      res=$(iw $int station dump | grep -A 15 $ST | grep signal\: | awk '{print $2}')  
+      echo mesh_node_signal{sourcemac=\"$mac\",device=\"$int\",target=\"$ST\"} $res  
+    done
+  fi
+
+done
+cat /proc/loadavg | awk '{print "node_load1 "$1"\nnode_load5 "$2"\nnode_load15 "$3}'
+cat /proc/uptime | awk '{print "node_boot_time "$1}'
+
+EOF
+chmod +x /www/metrics
+
+
 ###### GATEWAY OVER WG #########
 # WAN over eth0
 
