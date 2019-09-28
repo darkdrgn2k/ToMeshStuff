@@ -1,16 +1,16 @@
-#FLASH
-```
+#FLASH i uboot
+
 tftpboot 0x80010000 openwrt-18.06.2-ar71xx-generic-mr16-squashfs-kernel.bin; erase 0xbfda0000 +0x240000; cp.b 0x80010000 0xbfda0000 0x240000; 
 
 tftpboot 0x80010000 openwrt-18.06.2-ar71xx-generic-mr16-squashfs-rootfs.bin; erase 0xbf080000 +0xD20000; cp.b 0x80010000 0xbf080000 0xD20000;  setenv bootcmd bootm 0xbfda0000; saveenv; boot;
 
+# After boot... set mac based on sticker
 
 mtd erase mac
 echo -n -e '\x00\x18\x0a\x35\x90\x2c' > /dev/mtd5
 sync && reboot
 
 
-```
 
 ### INSTALL PACKAGE -- Configure the network manually to a local ones so new files can be downloaded.  
 NETWORKIP=192.168.40.66
@@ -34,12 +34,20 @@ opkg install babeld iperf3
 #---------------------------
 
 
-### CONFIGURE
+### CONFIGURE Settings
 
 MESHID=tomesh
 MESHAP=tomesh.net
+# AP radio 
+APRADIO=0
+APIF="wlan0"
+#MESH RADIO
+MESHRADIO=1
+MESHWLAN="wlan1"
 
-# OPTIONAL
+WANIF="eth0"
+
+# ------------------------------------------------------
 # Define ip address based on eth0 
 mac=$(cat /sys/class/net/eth0/address )
 ip2=$(printf "%d" "0x$(echo $mac | cut -f 4 -d \:)")
@@ -52,91 +60,13 @@ IPV4="10.$ip3.$ip4.1"
 #IPV4="10.$ip2.$ip3.$ip4"
 #IPAP="172.$(expr $ip2 % 16 + 16).$ip3.1"
 NODEID=$ip3-$ip4
+
+#-----
+
+# GENERAL SETUP
 # ------------------------------------------------------
-
-
-
-# ------------------------------------------------------
-# Set Name
+# Set hostname
 uci set system.@system[0].hostname="NODE$NODEID"
-
-# Enable radio 2.4 and set channel
-uci set wireless.radio0.disabled=0
-uci set wireless.radio0.channel=1
-
-# Enable radio 5ghz and set channel
-uci set wireless.radio1.disabled=0
-uci set wireless.radio1.channel=161
-uci set wireless.radio1.htmode='HT40'
-uci set wireless.radio1.country='US'
-uci set wireless.radio1.legacy_rates='1'
-
-
-# Unbridge lan from wifi
-uci delete network.lan
-##config interface 'lan'
-uci commit
-
-uci set network.wan.ifname='eth0'
-uci commit
-
-uci delete wireless.default_radio1
-uci delete wireless.Mesh
-# Configure MESH (adhoc) as default
-uci set wireless.Mesh=wifi-iface
-uci set wireless.Mesh.device='radio1'
-uci set wireless.Mesh.mode='adhoc'
-uci set wireless.Mesh.ssid="$MESHID"
-uci set wireless.Mesh.network="mesh1"
-uci commit
-
-# Configure ip address MESH
-uci delete network.mesh1
-uci set network.mesh1=interface
-uci set network.mesh1.proto='static'
-uci set network.mesh1.ipaddr=$IPV4
-uci set network.mesh1.netmask='255.255.255.255'
-uci commit
-
-
-#-----------
-# Meshpoint on 2.4 instaed of mesh (above) on radio0
-uci delete wireless.default_radio0
-uci delete wireless.Mesh24
-# Configure MESH (meshpoint) as default
-uci set wireless.Mesh24=wifi-iface
-uci set wireless.Mesh24.device='radio0'
-uci set wireless.Mesh24.mode='mesh'
-uci set wireless.Mesh24.mesh_fwding='0'
-uci set wireless.Mesh24.mesh_id="$MESHID"
-uci set wireless.Mesh24.network="mesh2"
-uci commit
-# Configure ip address MESH
-uci delete network.mesh24
-uci set network.mesh24=interface
-uci set network.mesh24.proto='static'
-uci set network.mesh24.ipaddr=$IPV4
-uci set network.mesh24.netmask='255.255.255.255'
-uci commit
-#----------end of ap
-
-
-# Disable DHCP for MESH
-uci delete dhcp.mesh1
-uci set dhcp.mesh1=dhcp
-uci set dhcp.mesh1.interface="mesh1"
-uci set dhcp.mesh1.ignore="1"
-uci commit
-
-
-# Configure babeld
-echo  > /etc/babeld.conf 
-echo "package babeld" > /etc/config/babeld
-echo "config general" >> /etc/config/babeld
-echo "    option 'local_port' '999'" >> /etc/config/babeld
-echo "config interface 'wlan1'" >> /etc/config/babeld
-echo "    option 'ifname' 'wlan1'" >> /etc/config/babeld
-
 
 ## FIREWALL ## Reset firewall
 echo > /etc/config/firewall
@@ -147,12 +77,84 @@ uci set firewall.@defaults[0].output='ACCEPT'
 uci set firewall.@defaults[0].forward='ACCEPT'
 uci commit
 
-# Configure 2.4 Ghz AP 
-uci delete wireless.default_radio0
+# REMOVE LAN
+uci delete network.lan
+uci commit
+
+# SET WAN INTERFACE
+uci delete network.wan
+uci set network.wan="interface"
+uci set network.wan.ifname="$WANIF"
+uci set network.wan.proto='dhcp'
+uci commit
+
+# BABELD BASIC CONFIG
+
+# Configure babeld
+echo  > /etc/babeld.conf 
+echo "package babeld" > /etc/config/babeld
+echo "config general" >> /etc/config/babeld
+echo "    option 'local_port' '999'" >> /etc/config/babeld
+
+### CONFIGURE MESH INTERFACE
+
+# RADIO CONFIGURATION
+
+# Enable radio 5ghz and set channel
+uci delete wireless.default_radio$MESHRADIO
+uci set wireless.radio$MESHRADIO.disabled=0
+uci set wireless.radio$MESHRADIO.channel=161
+uci set wireless.radio$MESHRADIO.htmode='HT40'
+uci set wireless.radio$MESHRADIO.country='US'
+uci set wireless.radio$MESHRADIO.legacy_rates='1'
+
+#WIRELESS
+uci delete wireless.Mesh
+# Configure MESH (adhoc) as default
+uci set wireless.Mesh=wifi-iface
+uci set wireless.Mesh.device="radio$MESHRADIO"
+uci set wireless.Mesh.mode='adhoc'
+uci set wireless.Mesh.ssid="$MESHID"
+uci set wireless.Mesh.network="mesh1"
+uci commit
+
+#NETWORK
+# Configure ip address MESH
+uci delete network.mesh1
+uci set network.mesh1=interface
+uci set network.mesh1.proto='static'
+uci set network.mesh1.ipaddr=$IPV4
+uci set network.mesh1.netmask='255.255.255.255'
+uci commit
+
+# Disable DHCP for MESH
+uci delete dhcp.mesh1
+uci set dhcp.mesh1=dhcp
+uci set dhcp.mesh1.interface="mesh1"
+uci set dhcp.mesh1.ignore="1"
+uci commit
+
+#BABELD for mesh
+# Add access point to babeld
+uci set babeld.$MESHIF=interface
+uci set babeld.$MESHIF.ifname="$MESHIF"
+uci commit
+
+### ACCESS POINT CONFIG
+
+
+# Enable radio  and set channel
+uci delete wireless.default_radio$APRADIO
+uci set wireless.radio$APRADIO.disabled=0
+uci set wireless.radio$APRADIO.channel=1
+
+
+# Configure AP 
+uci delete wireless.default_radio$APRADIO
 uci delete wireless.AP
 # Confiure Access Point
 uci set wireless.AP=wifi-iface
-uci set wireless.AP.device='radio0'
+uci set wireless.AP.device="radio$APRADIO"
 uci set wireless.AP.encryption='none'
 uci set wireless.AP.mode='ap'
 uci set wireless.AP.network='AP'
@@ -168,7 +170,7 @@ uci set network.AP=interface
 uci set network.AP.proto='static'
 uci set network.AP.ipaddr="$IPV4"
 uci set network.AP.'netmask'='255.255.255.0'
-uci set network.AP.dns='1.1.1.1'
+uci set network.AP.dns="$IPV4"
 uci commit
 
 # Configure AP DHCP
@@ -182,16 +184,14 @@ uci commit
 
 # Add AP (wlan0) to Babled
 # Add access point to babeld
-uci set babeld.wlan0=interface
-uci set babeld.wlan0.ifname='wlan0'
+uci set babeld.$APIF=interface
+uci set babeld.$APIF.ifname="$APIF"
 uci commit
 
-# Announce AP  on babeld
-echo redistribute if wlan0 metric 128 > /etc/babeld.conf
-echo redistribute local if wlan1 metric 128 >> /etc/babeld.conf
+# Announce AP ips on babeld
+echo redistribute if $APIF metric 128 >> /etc/babeld.conf
+echo redistribute local if $APIF metric 128 >> /etc/babeld.conf
 echo redistribute local deny >> /etc/babeld.conf
-
-
 
 ###### GATEWAY OVER WG #########
 # WAN over eth0
