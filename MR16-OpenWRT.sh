@@ -12,7 +12,7 @@ sync && reboot
 
 ```
 
-### INSTALL PACKAGE
+### INSTALL PACKAGE -- Configure the network manually to a local ones so new files can be downloaded.  
 NETWORKIP=192.168.40.66
 GATEWAY=192.168.40.1
 
@@ -30,6 +30,8 @@ echo nameserver 8.8.8.8 > /tmp/resolv.conf
 
 opkg update
 opkg install babeld iperf3
+#---------------------------
+
 
 ### CONFIGURE
 
@@ -53,7 +55,7 @@ NODEID=$ip3-$ip4
 
 
 
-  # ------------------------------------------------------
+# ------------------------------------------------------
 # Set Name
 uci set system.@system[0].hostname="NODE$NODEID"
 
@@ -70,10 +72,12 @@ uci set wireless.radio1.legacy_rates='1'
 
 
 # Unbridge lan from wifi
-uci delete network.lan.type
+uci delete network.lan
 ##config interface 'lan'
 uci commit
 
+uci set network.wan.ifname='eth0'
+uci commit
 
 uci delete wireless.default_radio1
 uci delete wireless.Mesh
@@ -95,7 +99,7 @@ uci commit
 
 
 #-----------
-# Meshpoint on 2.4 instaed
+# Meshpoint on 2.4 instaed of mesh (above) on radio0
 uci delete wireless.default_radio0
 uci delete wireless.Mesh24
 # Configure MESH (meshpoint) as default
@@ -113,6 +117,8 @@ uci set network.mesh24.proto='static'
 uci set network.mesh24.ipaddr=$IPV4
 uci set network.mesh24.netmask='255.255.255.255'
 uci commit
+#----------end of ap
+
 
 # Disable DHCP for MESH
 uci delete dhcp.mesh1
@@ -187,7 +193,7 @@ echo redistribute local deny >> /etc/babeld.conf
 uci delete network.wan
 uci set network.wan=interface
 uci set network.wan.proto='dhcp'
-uci set network.wan.ifname='eth0.2'
+uci set network.wan.ifname='eth0'
 uci commit
 
 # Create wg
@@ -198,14 +204,13 @@ privatekey=$(cat privatekey)
 publickey=$(wg pubkey < privatekey)
 
 uci delete network.wg0
-NODEID=14
-int=`uci add network interface`
-uci set network.$int.proto='wireguard'
-uci set network.$int.private_key="$privatekey"
-uci set network.$int.listen_port='1234'
-uci add_list network.$int.addresses="10.10.2.$NODEID/30"
-uci add_list network.$int.addresses="fe80::e495:6eff:fe47:$NODEID/64"
-uci rename network.$int='wg0'
+uci set network.wg0=interface
+uci set network.wg0.proto='wireguard'
+uci set network.wg0.private_key="$privatekey"
+uci set network.wg0.listen_port='1234'
+uci add_list network.wg0.addresses="$IPV4/32"
+nodehex=$(printf '%X\n' $ip3)$(printf '%X\n' $ip4)
+uci add_list network.wg0.addresses="fe80::e495:6eff:fe47:$nodehex/64"
 uci commit
 
 uci delete network.wireguard_wg0
@@ -219,9 +224,12 @@ uci add_list network.$int.allowed_ips='::/0'
 uci set network.$int.route_allowed_ips=true
 uci commit
 
+# Add babeld if to wg0
+uci set babeld.wg0=interface
+uci set babeld.wg0.ifname='wg0'
+uci commit
 
 ## wg-quick adds routes. disable it for exit node
-
 
 ## Add ipv spprt
 
