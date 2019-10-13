@@ -1,203 +1,297 @@
 <html>
-    <head>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
-        <style type="text/css">
-            #mynetwork {
-                width: 100%;
-                height: 100%;
-                border: 1px solid lightgray;
+
+<head>
+    <script type="text/javascript" src="vis-network.js"
+        tmp=="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="vis-network.min.css" tmp="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css"
+        rel="stylesheet" type="text/css" />
+    <style type="text/css">
+        #mynetwork {
+            width: 100%;
+            height: 100%;
+            border: 1px solid lightgray;
+        }
+
+        #status,
+        #legend {
+            border: 1px #cccccc solid;
+            background: #eeeeee;
+            width: 250px;
+            height: 25px;
+            position: absolute;
+            z-index: 100;
+            top: 5px;
+            left: 5px;
+        }
+
+        #legend {
+            top: inherit;
+            bottom: 5px;
+            left: inherit;
+            right: 5px;
+            height: 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("GET", "https://prometheus.meshwithme.online/api/v1/query?query=node_network_receive_bytes", false);
+        xmlhttp.send();
+
+        var GraphanaNodes = new Array();
+        if (xmlhttp.status === 200) {
+            var x = JSON.parse(xmlhttp.responseText);
+            for (var i in x.data.result) {
+                var n1 = x.data.result[i].metric.instance;
+                n1 = n1.replace("[", "");
+                n1 = n1.replace("]", "");
+                n1 = n1.substring(0, n1.lastIndexOf(":"));
+                if (!GraphanaNodes.includes(n1))
+                    GraphanaNodes.push(n1);
             }
-            #status, #legend {
-                border:1px #cccccc solid;
-                background:#eeeeee;
-                width:250px;
-                height:25px;
-                position: absolute;
-                z-index:100;
-                top: 5px;
-                left: 5px;
-            }
-            #legend { top:inherit; bottom:5px; left:inherit; right:5px; height:100px; }
-        </style>
-    </head>
-    <body>
-        <div id="legend">
+
+            console.log(GraphanaNodes);
+        }
+
+    </script>
+    <div id="legend">
         <b>Legend</b><br>
         <span style="background-color: #3333ff">Node</span><br>
         <span style="background-color: #cccccc">Node's Interface</span><br>
         <span style="background-color: #ccffff">Uncrawled Neighbour</span><br>
         <span style="background-color: #ffccff">Announced Address</span><br>
-        </div>
-        <div id="status"></div>
-        <div id="mynetwork"></div>
-        <script>
-            function setStatus(txt) {
-		document.getElementById("status").innerHTML=txt;
-            }
-            function LoadXMLDoc() {
-                setStatus("Prepping..");
-                nodesArray=[]; //vis.js array of nodes
-                edgesArray = []; //vis.js array of edges (links)
-          
-                nodes = new vis.DataSet(nodesArray);
-                edges = new vis.DataSet(edgesArray);
-          
-                var container = document.getElementById('mynetwork');
-                var data = {
-                    nodes: nodes,
-                    edges: edges
-                };
-                var options = {
-                    physics: { 
-                        enabled: true, 
-                        barnesHut: {
-                            damping:0.3,
-                            springLength: 20 
-                        }
-                    },
-                    layout: {
-                        improvedLayout:false
+    </div>
+    <div id="status"></div>
+    <div id="mynetwork"></div>
+    <script>
+        function setStatus(txt) {
+            document.getElementById("status").innerHTML = txt;
+        }
+        function LoadXMLDoc() {
+            setStatus("Prepping..");
+            nodesArray = []; //vis.js array of nodes
+            edgesArray = []; //vis.js array of edges (links)
+
+            nodes = new vis.DataSet(nodesArray);
+            edges = new vis.DataSet(edgesArray);
+
+            var container = document.getElementById('mynetwork');
+            var data = {
+                nodes: nodes,
+                edges: edges
+            };
+            var options = {
+                physics: {
+                    enabled: true,
+                    barnesHut: {
+                        damping: 0.2,
+                        springLength: 30
                     }
-                };
-
-                network= new vis.Network(container, data, options);
-
-                /* Double click no needed anymore
-                network.on("doubleClick", function (params) {
-                    params.event = "[original event]";
-                    var n=nodes._data[params.nodes[0]];
-          
-                    if (n.color=="#ccffff") {
-                        nodes.update({id:n.label, color:'#cc0000'});
-                        ip=ipv4[n.label];
-            //                 LoadMap(n.label+"%25" + nodesToScan[n.label]);
-            //                  LoadMap(ip);
-                    } else {
-                        alert(n.id);
-                    }
-                });
-                */
-                LoadMap(""); // Start loading the map
-            }
-          
-            function LoadMap(ip) {
-                setStatus("Requesting " + ip + "...");
-                var xmlhttp = new XMLHttpRequest();
-                xmlhttp.onreadystatechange = function() {
-                    if (this.readyState == 4 && this.status == 200) {
-                        if (this.response && this.response.indexOf('"BABEL" : "1.0"')>1 ) {
-                            Map(this,ip);
-                        } else {
-                            mapNext(ip);
-                        }
-                    }
-                };
-                xmlhttp.open("GET", "/cgi-bin/vis?" + ip, true);
-                xmlhttp.send();
-            }
-                   
-            var addedNodes= Array();
-            var NodeList = Array();
-            var InterfaceList = Array();
-            
-            var KnownIPS = {};//Array();
-            
-            function Map(ajax,ip) {
-
-                var if2ip = Array();
-          
-                if (!ip) ip=0;
-                var Nodes;
-                var NodeExist=Array();
-                str=ajax.response;
-                Nodes=JSON.parse(str);
-          
-                myid=Nodes["my-id"];
-            
-                NodeList[myid]=nodes.add({id: myid, label: myid})
-
-                // Store a list of /32 address that this instance of babeld knows about
-                for (var i in Nodes.route) {
-                    route=Nodes.route[i];
-                    if (i!="noop")
-                        if (route.target.indexOf("/32")>1 && !KnownIPS[route.target.replace("/32","")]) {
-                            KnownIPS[route.target.replace("/32","")]=1
-                        }
+                },
+                layout: {
+                    improvedLayout: false
                 }
-          
-                //Gray interfaces
-                for (var i in Nodes.interface) {
-                    node=Nodes.interface[i];
-                    if (i !="noop")
+            };
 
+            network = new vis.Network(container, data, options);
+
+            network.on("doubleClick", function (params) {
+                params.event = "[original event]";
+                var n = nodes._data[params.nodes[0]];
+
+                console.log(n);
+                if (n.color == "#ccccff") {
+                    if (n.nodeip != undefined) {
+                        showGraph("https://monitor.meshwithme.online/d-solo/VSbWWwgWk/mesh-node-metrics?orgId=1&var-node=" + n.nodeip + ":9100&panelId=12");
+                    }
+                }
+
+
+                /*                    if (n.color=="#ffccff") {
+                                        if (n.label.indexOf("/32")>0) {
+                                              ip=n.label.substring(0,n.label.indexOf("/"));
+                                              showGraph("https://monitor.meshwithme.online/d-solo/VSbWWwgWk/mesh-node-metrics?orgId=1&var-node=" + ip + ":9100&panelId=12");
+                                        }
+                                    }
+                */
+                console.log(n);
+                if (n.color == "#ccffff") {
+                    //                      nodes.update({id:n.label, color:'#cc0000'});
+                    //                        ip=ipv4[n.label];
+                    //                 LoadMap(n.label+"%25" + nodesToScan[n.label]);
+                    //                  LoadMap(ip);
+                } else {
+                    //                        alert(n.id);
+                }
+            });
+
+            LoadMap(""); // Start loading the map
+        }
+
+        function LoadMap(ip) {
+
+            console.log("LoadMap(" + ip + " )");
+            setStatus("Requesting " + ip + "...");
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    if (this.response && this.response.indexOf('"BABEL" : "1.0"') > 1) {
+                        Map(this, ip);
+                    } else {
+                        mapNext(ip);
+                    }
+                }
+            };
+            xmlhttp.open("GET", "/cgi-bin/vis?" + ip, true);
+            xmlhttp.send();
+        }
+
+        var addedNodes = Array();
+        var NodeList = Array();
+        var InterfaceList = Array();
+
+        var KnownIPS = {};//Array();
+
+        function Map(ajax, ip) {
+            var if2ip = Array();            
+
+            if (!ip) ip = 0;
+            var Nodes;
+            var NodeExist = Array();
+            str = ajax.response;
+            Nodes = JSON.parse(str);
+
+            myid = Nodes["my-id"];
+
+            NodeList[myid] = nodes.add({ id: myid, label: myid })
+
+            // Store a list of /32 address that this instance of babeld knows about
+            for (var i in Nodes.route) {
+                route = Nodes.route[i];
+                if (i != "noop")
+                    if (route.target.indexOf("/32") > 1 && !KnownIPS[route.target.replace("/32", "")]) {
+                        KnownIPS[route.target.replace("/32", "")] = 1
+                    }
+            }
+
+            //Gray interfaces
+            for (var i in Nodes.interface) {
+                node = Nodes.interface[i];
+                if (i != "noop")
                     // Node exists Then update it
                     if (nodes._data[node.ip]) {
-                        var currentNode=nodes._data[node.ip];
-                        nodes.update({id:node.ip, label:i, color:'#cccccc'});
+                        if (node.ip != "") {
+                            var currentNode = nodes._data[node.ip];
+                            nodes.update({ id: node.ip, label: i, color: '#cccccc' });
+                        }
                     } else {
-                    // Node does not exist. Update it
-                        InterfaceList[node.ip]=nodes.add({id:node.ip, label:i, color:'#cccccc' });
+                        // Node does not exist. Update it
+                        if (node.ip != "") {
+                            InterfaceList[node.ip] = nodes.add({ id: node.ip, label: i, color: '#cccccc' });
+                        }
                     }
 
-                    // I link between nodes does not exist,add it
-                    if (!edges._data[node.ip + myid])
-                        edges.add({id:node.ip + myid, from: node.ip, to: myid, length:1});
-                    if2ip[i]=node.ip;
-                }
+                // I link between nodes does not exist,add it
+                if (!edges._data[node.ip + myid])
+                    edges.add({ id: node.ip + myid, from: node.ip, to: myid, length: 1 });
+                if2ip[i] = node.ip;
+            }
 
-                //Cyan Neigbour nodes 
-                for (var i in Nodes.neighbour) {
-                    var addr=i;
-                    node=Nodes.neighbour[i];
-                    //lbl=node.mac;
-                    lbl=node.ip;
-                    if (!nodes._data[node.ip] && i !="noop" ) {
+            //Cyan Neigbour nodes 
+            for (var i in Nodes.neighbour) {
+                var addr = i;
+                node = Nodes.neighbour[i];
+                //lbl=node.mac;
+                lbl = node.ip;
+                if (i != 'noop') {
+                    if (!nodes._data[node.ip]) {
                         if (!addedNodes[node.ip]) {
-                            addedNodes[node.ip]=nodes.add({id:node.ip, mac:node.mac, label: lbl, color:'#ccffff'});
-                            edges.add({id:node.ip, from: node.ip, to: if2ip[node.if], label:node.signal});
+                            addedNodes[node.ip] = nodes.add({ id: node.ip, mac: node.mac, label: lbl, color: '#ccffff' });
+                        }
+                    }
+
+                    if (!edges._data[node.ip + if2ip[node.if]] && !edges._data[if2ip[node.if] + node.ip]) {
+                        var l = "";
+                        if (node.signal != "") {
+                            l = (((node.signal * -1) - 20) * 4);
+                            console.log("length:" + l);
+                            edges.add({ id: node.ip + if2ip[node.if], from: node.ip, to: if2ip[node.if], label: node.signal, length: l });
+                        } else {
+                            edges.add({ id: node.ip + if2ip[node.if], from: node.ip, to: if2ip[node.if], label: node.signal });
                         }
                     }
                 }
-          
-                for (var i in Nodes.xroute) {
-                    node=Nodes.xroute[i];
-                    if (i !="noop") {
-                        nodes.add({id:i + myid, label:node.route, color:'#ffccff' });
-                        edges.add({id:i + myid, from: myid, to: i + myid});
-
-                        // If node has a /32 ip address flag it so it doesnt get scanned again
-                        if (node.route.indexOf("/32")>1) {
-                            testIP=node.route.replace("/32","");
-                            KnownIPS[testIP]=2; 
-                        }
-                    }
-                }
-                mapNext(ip);
-          
             }
 
-            // function will scan the next available /32 address
-            function mapNext(ip) {
-          
-                // Flag current address as scanned
-                if (ip) {
-                    KnownIPS[ip]=3;
-                }
-          
-                console.log(JSON.stringify(KnownIPS));
+            for (var i in Nodes.xroute) {
+                node = Nodes.xroute[i];
+                console.log("node" + i);
+                if (i != "noop") {
+                    console.log("Adding" + i + myid);
 
-                // run the next ip in list that was not scanned
-                for (var key in KnownIPS){
-                    if (KnownIPS[key]==1) {
-                        LoadMap(key);
-                        return;
+
+                    //Check if graphana exists and if so change the color of the node
+                    var testAddress = node.route;
+                    testAddress = testAddress.substring(0, testAddress.lastIndexOf("/"));
+                    if (GraphanaNodes.includes(testAddress)) {
+                        console.log("YAAAY FOUND ADDRESS " + testAddress);
+                        nodes._data[myid].nodeip = testAddress;
+                        nodes.update({ id: myid, color: '#ccccff' });
+                    } else {
+                        console.log("BO NOT FOUND ADDRESS " + testAddress);
+
+                    }
+
+                    nodes.add({ id: i + myid, label: node.route, color: '#ffccff' });
+                    edges.add({ id: i + myid, from: myid, to: i + myid });
+
+                    // If node has a /32 ip address flag it so it doesnt get scanned again
+                    if (node.route.indexOf("/32") > 1) {
+                        testIP = node.route.replace("/32", "");
+                        KnownIPS[testIP] = 2;
                     }
                 }
-                 setStatus("Load complete.");         
             }
-          
-            LoadXMLDoc();
-       </script>
-    </body>
- </html>
+            console.log("mappiong " + ip);
+
+            mapNext(ip);
+
+        }
+
+        // function will scan the next available /32 address
+        function mapNext(ip) {
+
+            // Flag current address as scanned
+            if (ip) {
+                KnownIPS[ip] = 3;
+            }
+
+            console.log(JSON.stringify(KnownIPS));
+
+            // run the next ip in list that was not scanned
+            for (var key in KnownIPS) {
+                if (KnownIPS[key] == 1) {
+                    console.log("loading " + key);
+                    LoadMap(key);
+                    return;
+                }
+            }
+            console.log("Just for you charlie");
+            console.log(JSON.stringify(edges));
+            console.log(JSON.stringify(nodes));
+            setStatus("Load complete.");
+        }
+
+        LoadXMLDoc();
+    </script>
+    <div id="bandwith"
+        style="display:block; position: absolute; bottom:0px;left:0px; width:600px;height:400px; z-order:100;"></div>
+    <script>
+        function showGraph(ln) {
+            document.getElementById("bandwith").innerHTML = "<iframe src=" + ln + " style='width:100%; height:100%'></iframe>";
+        }
+    </script>
+</body>
+</html>
