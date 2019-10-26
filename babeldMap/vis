@@ -2,7 +2,7 @@
 printf "Content-type: text/html\n\n"
 
 function getmac {
-   re=$(ip -6 neighbor show | grep $1 | awk '{print $5}')
+   re=$(ip -6 neig show | grep $1 | awk '{print $5}')
    echo $re
 }
 function getsignal {
