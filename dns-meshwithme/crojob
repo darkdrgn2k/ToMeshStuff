@@ -1,0 +1,40 @@
+<?php
+$res= file_get_contents('https://raw.githubusercontent.com/tomeshnet/node-list/master/nodeList.json');
+$allnodes[]=json_decode($res);
+$res=file_get_contents('https://raw.githubusercontent.com/darkdrgn2k/node-list/master/nodeList-nomap.json');
+$allnodes[]=json_decode($res);
+$res= file_get_contents('https://raw.githubusercontent.com/tomeshnet/node-list/master/nodeList-nomap.json');
+$allnodes[]=json_decode($res);
+
+
+$r="";
+
+
+foreach ($allnodes as $nodes)
+    foreach ($nodes as $node)
+        if (isset($node->IPV6Address) && isset($node->name)) {
+            $name=$node->name;
+            $name = preg_replace("/[^a-zA-Z0-9\-_]+/", "", $name);
+            add($name,$node->IPV6Address);
+        }
+
+ob_start();
+passthru("cat /etc/bind/zones/meshwithme.online.db | grep -F \"h.\" | grep -z ssb | awk '{print \"update delete \"$1\".meshwithme.online\"}' ");
+$del = ob_get_clean();
+
+$cmd="server 127.0.0.1\nzone meshwithme.online\n";
+$cmd.=$del;
+//$cmd.=passthru("cat /etc/bind/zones/meshwithme.online.db | grep -F \"h.\" | awk '{print \"update delete \"$1\"\"}'");
+echo 123;
+
+$cmd.=$addhosts;
+$cmd.="send\nquit\n";
+file_put_contents("/tmp/dns.log",$cmd);
+$x=exec("nsupdate -y 'meshwithme.online:xxxxxxxxxxxxxxxkeyxxxxxxxxxxxxxxxxxxxxxxxxx' -v /tmp/dns.log");
+
+function add($hostname,$ip) {
+    global $addhosts;
+    $hostname="h.$hostname.meshwithme.online";
+    $addhosts .= "update add " . $hostname . " 15 AAAA $ip\n";
+     //    $cmd="server 127.0.0.1\nzone meshwithme.online\nupdate delete " . $hostname . "\nupdate add " . $hostname . " 15 AAAA $ip\nsend\nquit\n";
+}
