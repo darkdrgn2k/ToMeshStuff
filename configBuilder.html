@@ -105,33 +105,36 @@
                     res += 'uci set network.' + wrtName + '.ipaddr="' + IPv4 + '"\n';
                     res += 'uci set network.' + wrtName + '.netmask="' + netMask + '"\n';
                     res += 'uci set network.' + wrtName + '.ip6addr="' + IPv6 + '' + netMaskV6 + '"\n';
+                    if (netMaskV6 == "/64') {
+                      res += 'uci set network.' + wrtName + '.ip6gw="' + IPv6 + '"\n';
                 }
-                scriptInterface += "EOF\n";
-                scriptInterface += 'echo <<"EOF"> /etc/network/interfaces.d/' + Interface + "\n";
-                scriptInterface += "auto " + Interface + "\n";
-                if (Proto == "Dynamic") {
-                    scriptInterface += "iface " + Interface + " inet dhcp\n";
-                }
-                if (Proto == "Static") {
-                    scriptInterface += "iface " + Interface + " inet static\n";
-                    scriptInterface += "address " + IPv4 + "\n";
-                    scriptInterface += "netmask " + netMask + "\n";
-                }
-                scriptInterface += "iface " + Interface + " inet6 static\n"
-                scriptInterface += "address " + IPv6 + netMaskV6 + "\n";
             }
+            scriptInterface += "EOF\n";
+            scriptInterface += 'echo <<"EOF"> /etc/network/interfaces.d/' + Interface + "\n";
+            scriptInterface += "auto " + Interface + "\n";
+            if (Proto == "Dynamic") {
+                scriptInterface += "iface " + Interface + " inet dhcp\n";
+            }
+            if (Proto == "Static") {
+                scriptInterface += "iface " + Interface + " inet static\n";
+                scriptInterface += "address " + IPv4 + "\n";
+                scriptInterface += "netmask " + netMask + "\n";
+            }
+            scriptInterface += "iface " + Interface + " inet6 static\n"
+            scriptInterface += "address " + IPv6 + netMaskV6 + "\n";
+        }
 
-            /*
-                res += '';
-                res += '';
+        /*
+            res += '';
+            res += '';
 
-            */
+        */
 
-            res += "uci commit\n</pre>";
-            res2 += scriptInterface;
-            res2 += "EOF\n</pre>";
-            document.getElementById("result1").innerHTML = res;
-            document.getElementById("result2").innerHTML = res2;
+        res += "uci commit\n</pre>";
+        res2 += scriptInterface;
+        res2 += "EOF\n</pre>";
+        document.getElementById("result1").innerHTML = res;
+        document.getElementById("result2").innerHTML = res2;
         }
         function updateIPv6() {
             var IPv4 = document.getElementById("txtIPv4").value;
