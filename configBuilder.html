@@ -1,0 +1,157 @@
+<html>
+
+<body>
+
+    <form>
+        <input type="checkbox" id="chkBabeldClear" checked="true" /> Clear Babeld<br>
+        <input type="checkbox" id="chkBabeldBase" checked="true" />Base Babeld Config<br>
+        <hr>
+        <h1>Add Interface</h1>
+        Interface:<input type="textbox" id="txtInterface" value="eth0"><br>
+        <input type="checkbox" id="chkBabeldInterface" checked="true" />Look for BABELD nodes on this interface<br>
+        <input type="checkbox" id="chkBabeldRedistributeInterface" checked="true" />Redistribute IPS on this
+        interface<br>
+        <input type="checkbox" id="chkBabeldRedistributeInterfaceLocal" checked="true" />Limit to LOCAL ips on this
+        interface<br>
+        <input type="checkbox" id="chkConfigure" checked="true" />Set an IP for this interface<br>
+        OpenWRT Name<input type="textbox" id="txtOpenwrtName" value="lan"><br>
+        Protocol:
+        Dynamic <input type='radio' name='rdoProtocol' id='rdoProtocolDynamic' value='Dynamic'>
+        Static <input type='radio' name='rdoProtocol' id='rdoProtocolStatic' value='Static' checked="true"><br>
+        <input type="checkbox" id="chkSubnet" checked="true" />Extend Subnet to DHCP Clients on interface<br>
+
+        IPv4:<input type="textbox" id="txtIPv4" value="10.10.0.1"><input type="button" onclick="updateIPv6()"
+            value="GenerateIPv6" /><br>
+        IPv6:<input type="textbox" id="txtIPv6" value=""><br>
+
+        <input type="button" onclick="UpdateScript()" value="Build">
+
+    </form>
+    <div id="result1"
+        style='border:1px solid black; padding:10px; display:inline-block; width:45%; vertical-align:top;'>
+    </div>
+
+    <div id="result2" style='border:1px solid black; padding:10px;display:inline-block; width:45%; vertical-align:top;'>
+    </div>
+
+    <script>
+
+        function UpdateScript() {
+            var res = "<pre>";
+            var res2 = "<pre>";
+            if (document.getElementById("chkBabeldClear").checked) {
+                res += 'echo "package babeld" > /etc/config/babeld \n';
+                res2 += 'cat <<"EOF" > /etc/babeld.conf \n';
+            } else {
+                res2 += 'cat <<"EOF" >> /etc/babeld.conf \n';
+            }
+            var scriptInterface = "";
+            if (document.getElementById("chkBabeldBase").checked) {
+                res += 'uci delete babeld.general.general\n';
+                res += 'uci set babeld.general="general"\n';
+                res += 'uci set babeld.general.local_port="999"\n';
+                res += 'uci set babeld.general.log_file="/var/log/babeld.log"\n';
+
+                res2 += 'local_port 999\n';
+                res2 += 'log_file "/var/log/babeld.log"\n';
+            }
+
+            var Interface = document.getElementById("txtInterface").value;
+            if (document.getElementById("chkBabeldInterface").checked) {
+
+                res += 'uci delete babeld.' + Interface + '\n';
+                res += 'uci set babeld.' + Interface + '="interface"\n';
+                res += 'uci set babeld.' + Interface + '.ifname="' + Interface + '"\n';
+
+                res2 += 'interface ' + Interface + '\n';
+
+
+            }
+            var onlyLocal = document.getElementById("chkBabeldRedistributeInterfaceLocal").checked;
+            if (document.getElementById("chkBabeldRedistributeInterface").checked) {
+                res += 'uci delete babeld.redist_' + Interface + '\n';
+                res += 'uci set babeld.redist_' + Interface + '="filter"\n';
+                res += 'uci set babeld.redist_' + Interface + '.type="redistribute"\n';
+                res += 'uci set babeld.redist_' + Interface + '.if="' + Interface + '"\n';
+                res += 'uci set babeld.redist_' + Interface + '.action="metric 128"\n';
+                var localKeyword = '';
+                if (onlyLocal) {
+                    res += 'uci set babeld.redist_' + Interface + '.local="true"\n';
+                    localKeyword = ' local ';
+                }
+                res2 += 'redistribute ' + localKeyword + 'if ' + Interface + '\n';
+
+            }
+
+            var wrtName = document.getElementById("txtOpenwrtName").value;
+            var IPv4 = document.getElementById("txtIPv4").value;
+            var IPv6 = document.getElementById("txtIPv6").value;
+            var Proto = document.querySelector('input[name="rdoProtocol"]:checked').value;
+            var netMask = "255.255.255.255";
+            var netMaskV6 = "/128";
+            if (document.getElementById("chkSubnet").checked) {
+                netMask = "255.255.255.0";
+                netMaskV6 = "/64";
+            }
+            if (document.getElementById("chkConfigure").checked) {
+                res += 'uci delete network.interface.' + wrtName + '\n';
+                res += 'uci set network.' + wrtName + '="interface"\n';
+                res += 'uci set network.' + wrtName + '.ifname="' + Interface + '"\n';
+                if (Proto == "Dynamic") {
+                    res += 'uci set network.' + wrtName + '.proto="dhcp"\n';
+                }
+                if (Proto == "Static") {
+                    res += 'uci set network.' + wrtName + '.proto="static"\n';
+                    res += 'uci set network.' + wrtName + '.ipaddr="' + IPv4 + '"\n';
+                    res += 'uci set network.' + wrtName + '.netmask="' + netMask + '"\n';
+                    res += 'uci set network.' + wrtName + '.ip6addr="' + IPv6 + '' + netMaskV6 + '"\n';
+                }
+                scriptInterface += "EOF\n";
+                scriptInterface += 'echo <<"EOF"> /etc/network/interfaces.d/' + Interface + "\n";
+                scriptInterface += "auto " + Interface + "\n";
+                if (Proto == "Dynamic") {
+                    scriptInterface += "iface " + Interface + " inet dhcp\n";
+                }
+                if (Proto == "Static") {
+                    scriptInterface += "iface " + Interface + " inet static\n";
+                    scriptInterface += "address " + IPv4 + "\n";
+                    scriptInterface += "netmask " + netMask + "\n";
+                }
+                scriptInterface += "iface " + Interface + " inet6 static\n"
+                scriptInterface += "address " + IPv6 + netMaskV6 + "\n";
+            }
+
+            /*
+                res += '';
+                res += '';
+
+            */
+
+            res += "uci commit\n</pre>";
+            res2 += scriptInterface;
+            res2 += "EOF\n</pre>";
+            document.getElementById("result1").innerHTML = res;
+            document.getElementById("result2").innerHTML = res2;
+        }
+        function updateIPv6() {
+            var IPv4 = document.getElementById("txtIPv4").value;
+            var IPv6 = document.getElementById("txtIPv6").value;
+            var v = IPv4.split(".");
+            backhaul = 69;
+            if (v[0] == "100") {
+                backhaul = 68;
+            }
+
+            hex1 = Number(v[1]).toString(16);
+            if (hex1.length == 1) hex1 = '0' + hex1;
+            hex2 = Number(v[2]).toString(16);;
+            if (hex2.length == 1) hex2 = '0' + hex2;
+            var res = "FD74:6F6D:73" + backhaul + ":" + hex1 + hex2 + "::1";
+            res = res.toLowerCase();
+            document.getElementById("txtIPv6").value = res;
+
+        }
+    </script>
+</body>
+
+</html>
