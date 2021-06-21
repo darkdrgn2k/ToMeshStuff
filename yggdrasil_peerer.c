@@ -148,7 +148,7 @@ unsigned char keyb[(strlen(KEY)/2)+1];
   ipos=ipos + strlen(keyb);
   memcpy(data+ipos,&dst,strlen(dst));  
   datalen=strlen(data);
-  printf("%s\n\n\n",data);
+  //printf("%s\n\n\n",data);
 
 
 
