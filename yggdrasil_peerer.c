@@ -49,10 +49,17 @@ uint16_t checksum (uint16_t *addr, int len);
 uint16_t udp6_checksum (struct ip6_hdr, struct udphdr, uint8_t *, int);
 char *allocate_strmem (int);
 uint8_t *allocate_ustrmem (int);
+int yggdrasill_hello(char *KEY,char *IPv6ADDR,char *PORT,char *IFACE);
+int main (int argc, char **argv) {
 
-int
-main (int argc, char **argv) {
+   if( argc < 4 ) {
+      printf("Usage: %s <KEY> <IPv6> <PORT> <INTERFACE>\n", argv[0]);
+      return 0;
+   }
+  yggdrasill_hello (argv[1],argv[2],argv[3],argv[4]);
+};
 
+int yggdrasill_hello(char *KEY,char *IPv6ADDR,char *PORT,char *IFACE) {   
   int i, status, datalen, frame_length, sd, bytes;
   char *interface, *target, *src_ip, *dst_ip;
   struct ip6_hdr iphdr;
@@ -74,8 +81,6 @@ main (int argc, char **argv) {
   src_ip = allocate_strmem (INET6_ADDRSTRLEN);
   dst_ip = allocate_strmem (INET6_ADDRSTRLEN);
 
-
-  printf("STARTING...");
   // Submit request for a socket descriptor to look up interface.
   if ((sd = socket (PF_PACKET, SOCK_DGRAM, IPPROTO_RAW)) < 0) {
     perror ("socket() failed to get socket descriptor for using ioctl() ");
@@ -84,7 +89,7 @@ main (int argc, char **argv) {
 
 
 //  strcpy (interface, "enp9s0");
-  strcpy (interface, "eth4");
+  strcpy (interface, IFACE);
   // Find interface index from interface name and store index in
   // struct sockaddr_ll device, which will be used as an argument of sendto().
   memset (&device, 0, sizeof (device));
@@ -101,8 +106,7 @@ main (int argc, char **argv) {
   memcpy (dst_mac,mac2,12);
 
   // Source IPv6 address: you need to fill this out
-  strcpy (src_ip, "fd74:6f6d:7368:7f02::fd");
-
+  strcpy (src_ip, IPv6ADDR);
   // Destination URL or IPv6 address: you need to fill this out
   strcpy (dst_ip, "ff02::114");
 
@@ -114,9 +118,9 @@ main (int argc, char **argv) {
 
 
 //Deal with the key
-char key[]="d06fba883a5cf7fbad1ea21ee927f22bc10b58fd0cc7572ca691d806553a9024";
-const char *pos = key;
-unsigned char keyb[(strlen(key)/2)+1];
+//char key[]="d06fba883a5cf7fbad1ea21ee927f22bc10b58fd0cc7572ca691d806553a9024";
+const char *pos = KEY;
+unsigned char keyb[(strlen(KEY)/2)+1];
     for (size_t count = 0; count < sizeof keyb/sizeof *keyb; count++) {
         sscanf(pos, "%2hhx", &keyb[count]);
         pos += 2;
@@ -128,17 +132,15 @@ unsigned char keyb[(strlen(key)/2)+1];
   ipos=0;
   char dst[strlen(src_ip)+4+3];
   dst[0]='[';
-   printf("%s\n\n\n",dst);
+  
   memcpy(&dst[1],src_ip,strlen(src_ip));
   ipos=ipos+strlen(src_ip)+1;
-  dst[ipos++]=']'; 
+  dst[ipos++]=']';
   dst[ipos++]=':';
-  dst[ipos++]='1';
-  dst[ipos++]='0';
-  dst[ipos++]='2';
-  dst[ipos++]='4';
+  memcpy(&dst[ipos],PORT,strlen(PORT));
+  ipos=ipos+ strlen(PORT);
   dst[ipos]=0;
-
+  
 //udp data
   ipos=0;
 
@@ -146,6 +148,7 @@ unsigned char keyb[(strlen(key)/2)+1];
   ipos=ipos + strlen(keyb);
   memcpy(data+ipos,&dst,strlen(dst));  
   datalen=strlen(data);
+  printf("%s\n\n\n",data);
 
 
 
