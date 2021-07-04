@@ -1,9 +1,9 @@
 --- src/multicast/multicast.go.orig	2021-06-20 20:46:39.931668548 -0400
 +++ src/multicast/multicast.go	2021-06-20 20:47:04.579662061 -0400
 @@ -367,7 +367,16 @@
- 		phony.Block(m, func() {
- 			interfaces = m._interfaces
- 		})
+		phony.Block(m, func() {
+			interfaces = m._interfaces
+		})
 -		if _, ok := interfaces[from.Zone]; ok {
 +		_, ok := interfaces[from.Zone]
 +		if !ok && !from.IP.IsLinkLocalUnicast() && rcm != nil {
@@ -15,6 +15,6 @@
 +			}
 +		}
 +		if ok {
- 			addr.Zone = ""
- 			pin := fmt.Sprintf("/?key=%s", hex.EncodeToString(key))
- 			u, err := url.Parse("tls://" + addr.String() + pin)
+			addr.Zone = ""
+			pin := fmt.Sprintf("/?key=%s", hex.EncodeToString(key))
+			u, err := url.Parse("tls://" + addr.String() + pin)
